@@ -64,6 +64,90 @@ Run this script as a k8s cron job once per day.
 
 If you run on multiple clusters, set the OPENCOST_PARQUET_FILE_KEY_PREFIX with a unique indentifier per cluster.
 
+# Athena Table setup.
+
+Create the following athena table, after you upload the resulting files to an S3 bucket.
+
+Change the CHANGE-ME-S3-BUCKET-NAME to your bucket name.
+
+```
+CREATE EXTERNAL TABLE `k8s_opencost`(
+  `name` string COMMENT 'name from opencost cost model, includes namespace, pod and container name',
+  `running_start_time` string COMMENT 'Date for when container started running during window',
+  `running_end_time` string COMMENT 'Date when container stopped during the window',
+  `running_minutes` double COMMENT 'Minutes container run during window',
+  `cpucores` double COMMENT 'CPU cores',
+  `cpucorerequestaverage` double COMMENT 'CPU Cores requested during the window',
+  `cpucoreusageaverage` double COMMENT 'CPU Cores used during the window',
+  `cpucorehours` double COMMENT 'CPU cores max(requests,used) every 30 seconds averaged using the running_minutes',
+  `cpucost` double COMMENT 'CPU cost calculated by opencost',
+  `cpucostadjustment` double COMMENT 'Internal opencost information',
+  `cpuefficiency` double COMMENT 'Efficiency if Usage is available',
+  `gpucount` double COMMENT 'GPU Count used',
+  `gpuhours` double COMMENT 'GPU hours used',
+  `gpucost` double COMMENT 'GPU Cost',
+  `gpucostadjustment` double COMMENT 'Internal opencost information',
+  `networktransferbytes` double COMMENT 'Bytes transfered , only work on kubecost',
+  `networkreceivebytes` double COMMENT 'Bytes received, only work in kubecost',
+  `networkcost` double COMMENT 'Network Cost, only work in kubecost',
+  `networkcrosszonecost` double COMMENT 'Cross AZ, cost, only works in kubecost',
+  `networkcrossregioncost` double COMMENT 'Cross region Cost, only works in kubecost',
+  `networkinternetcost` double COMMENT 'Internet cost, only works in kubecost',
+  `networkcostadjustment` double COMMENT 'Internal opencost field, only works in kubecost',
+  `loadbalancercost` double COMMENT 'Loadbalancer cost',
+  `loadbalancercostadjustment` double COMMENT 'Internal opencost field',
+  `pvbytes` double COMMENT 'PV bytes used',
+  `pvbytehours` double COMMENT 'PV Bytes used averaged during the running time',
+  `pvcost` double COMMENT 'PV Cost',
+  `pvcostadjustment` double COMMENT 'Internal opencost field',
+  `rambytes` double COMMENT 'Rambytes used',
+  `rambyterequestaverage` double COMMENT 'Rambytes requested',
+  `rambyteusageaverage` double COMMENT 'Rambytes used',
+  `rambytehours` double COMMENT 'Rambytes max(request,used) every 30 seconds averaged during the running minutes',
+  `ramcost` double COMMENT 'Cost of ram',
+  `ramcostadjustment` double COMMENT 'internal opencost field',
+  `ramefficiency` double COMMENT 'Efficiency of ram',
+  `externalcost` double COMMENT 'External cost, supported in kubecost',
+  `sharedcost` double COMMENT 'Shared cost, Supported in kubecost',
+  `totalcost` double COMMENT 'Total cost, ram+cpu+lb+pv',
+  `totalefficiency` double COMMENT 'Total cost efficiency',
+  `properties.cluster` string COMMENT 'Cluster name',
+  `properties.node` string COMMENT 'Node name',
+  `properties.container` string COMMENT 'Container name',
+  `properties.controller` string COMMENT 'Controller name',
+  `properties.controllerkind` string COMMENT 'Controler Kind',
+  `properties.namespace` string COMMENT 'K8s namespace',
+  `properties.pod` string COMMENT 'K8s pod name',
+  `properties.services` array<string> COMMENT 'array of services',
+  `properties.providerid` string COMMENT 'Cloud provider instance id',
+  `label.node_type` string COMMENT 'Label node_type',
+  `label.product` string COMMENT 'Label Product',
+  `label.project` string COMMENT 'Label Project',
+  `label.role` string COMMENT 'Label Role',
+  `label.team` string COMMENT 'Label team',
+  `namespacelabels.product` string COMMENT 'Namespace Label product',
+  `namespacelabels.project` string COMMENT 'Namespace Label project',
+  `namespacelabels.role` string COMMENT 'Namespace Label role',
+  `namespacelabels.team` string COMMENT 'Namespace Label team',
+  `window.start` string COMMENT 'When the window started. Use this to match cloud provider cost system, ex: aws cur dt',
+  `window.end` string COMMENT 'When the window ended',
+  `__index_level_0__` bigint COMMENT '')
+PARTITIONED BY (
+  `cluster` string COMMENT '',
+  `year` string COMMENT '',
+  `month` string COMMENT '',
+  `day` string COMMENT '')
+ROW FORMAT SERDE
+  'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+STORED AS INPUTFORMAT
+  'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+OUTPUTFORMAT
+  'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION
+  's3://CHANGE-ME-S3-BUCKET-NAME/'
+TBLPROPERTIES (
+)
+```
 # TODO
 
 The following tasks need to be completed:
