@@ -7,17 +7,37 @@ import boto3
 
 
 def get_config(
-        hostname=os.environ.get('OPENCOST_PARQUET_SVC_HOSTNAME', 'localhost'),
-        port=os.environ.get('OPENCOST_PARQUET_SVC_PORT', 9003),
-        window_start=os.environ.get('OPENCOST_PARQUET_WINDOW_START', None),
-        window_end=os.environ.get('OPENCOST_PARQUET_WINDOW_END', None),
-        s3_bucket=os.environ.get('OPENCOST_PARQUET_S3_BUCKET', None),
-        file_key_prefix=os.environ.get('OPENCOST_PARQUET_FILE_KEY_PREFIX',
-                                       '/tmp/'),
-        aggregate_by=os.environ.get('OPENCOST_PARQUET_AGGREGATE',
-                                    'namespace,pod,container'),
-        step=os.environ.get('OPENCOST_PARQUET_STEP', '1h')):
+        hostname=None,
+        port=None,
+        window_start=None,
+        window_end=None,
+        s3_bucket=None,
+        file_key_prefix=None,
+        aggregate_by=None,
+        step=None):
     config = {}
+
+    # If function was called passing parameters the default value is ignored and environment variable is also ignored.
+    # This is done, so passing parameters have precedence to environment variables.
+    if hostname is None:
+        hostname = os.environ.get('OPENCOST_PARQUET_SVC_HOSTNAME', 'localhost')
+    if port is None:
+        port = int(os.environ.get('OPENCOST_PARQUET_SVC_PORT', 9003))
+    if window_start is None:
+        window_start = os.environ.get('OPENCOST_PARQUET_WINDOW_START', None)
+    if window_end is None:
+        window_end = os.environ.get('OPENCOST_PARQUET_WINDOW_END', None)
+    if s3_bucket is None:
+        s3_bucket = os.environ.get('OPENCOST_PARQUET_S3_BUCKET', None)
+    if file_key_prefix is None:
+        file_key_prefix = os.environ.get('OPENCOST_PARQUET_FILE_KEY_PREFIX', '/tmp/')
+    if aggregate_by is None:
+        aggregate_by = os.environ.get('OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
+    if step is None:
+        step = os.environ.get('OPENCOST_PARQUET_STEP', '1h')
+
+    if s3_bucket is not None:
+        config['s3_bucket'] = s3_bucket
     config['url'] = "http://{}:{}/allocation/compute".format(hostname, port)
     config['file_key_prefix'] = file_key_prefix
     # If window is not specified assume we want yesterday data.
