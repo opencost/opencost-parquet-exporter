@@ -1,11 +1,13 @@
+""" Test cases for opencost-parquet-exporter."""
 import unittest
-import requests
-import os
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
+import os
+import requests
 from opencost_parquet_exporter import get_config, request_data
 
 class TestGetConfig(unittest.TestCase):
+    """Test cases for get_config method"""
     def test_get_config_with_env_vars(self):
         """Test get_config returns correct configurations based on environment variables."""
         with patch.dict(os.environ, {
@@ -30,7 +32,7 @@ class TestGetConfig(unittest.TestCase):
                 datetime.now() - timedelta(1), '%Y-%m-%d')
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
-            window = '{},{}'.format(window_start, window_end)
+            window = f"{window_start},{window_end}"
 
             config = get_config()
             self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
@@ -48,7 +50,7 @@ class TestGetConfig(unittest.TestCase):
                 datetime.now() - timedelta(1), '%Y-%m-%d')
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
-            window = '{},{}'.format(window_start, window_end)
+            window = f"{window_start},{window_end}"
 
             config = get_config()
             self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
@@ -65,7 +67,7 @@ class TestGetConfig(unittest.TestCase):
                 datetime.now() - timedelta(1), '%Y-%m-%d')
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
-            window = '{},{}'.format(window_start, window_end)
+            window = f"{window_start},{window_end}"
 
             config = get_config()
             self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
@@ -74,6 +76,7 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config['params'][0][1], window)
 
 class TestRequestData(unittest.TestCase):
+    """ Test request_data method """
     @patch('opencost_parquet_exporter.requests.get')
     def test_request_data_success(self, mock_get):
         """Test request_data successfully retrieves data when response is OK."""
@@ -93,7 +96,7 @@ class TestRequestData(unittest.TestCase):
         self.assertEqual(data, [{'key': 'value'}])
 
     @patch('opencost_parquet_exporter.requests.get')
-    def test_request_data_success(self, mock_get):
+    def test_request_data_wrong_content_type(self, mock_get):
         """Test request_data successfully retrieves data when response is OK."""
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
