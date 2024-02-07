@@ -241,7 +241,7 @@ def save_result(processed_result, config):
                      file key prefix, and others.
 
     Returns:
-    - None
+    - uri : String with the path where the data was saved.
     """
     file_name = 'k8s_opencost.parquet'
     window = datetime.strptime(config['window_start'], "%Y-%m-%dT%H:%M:%SZ")
@@ -255,6 +255,7 @@ def save_result(processed_result, config):
             path = '/'+parquet_prefix
             os.makedirs(path, 0o750, exist_ok=True)
         processed_result.to_parquet(uri)
+        return uri
     except pd.errors.EmptyDataError as ede:
         print(f"Error: No data to save, the DataFrame is empty.{ede}")
     except KeyError as ke:
@@ -271,22 +272,34 @@ def save_result(processed_result, config):
         print("Error: Incomplete AWS credentials provided for accessing S3")
     except boto_exceptions.ClientError as ce:
         print(f"AWS Client Error: {ce}")
+    return None
 
 def main():
     """
     Main function to execute the workflow of fetching, processing, and saving data
     for yesterday.
     """
+    print("Starting run for yesterday data")
     config = get_config()
+    print(config)
+    print("Retrieving data from opencost api")
     result = request_data(config)
     if result is None:
         print("Result is None. Aborting execution")
         sys.exit(1)
+    print("Opencost data retrieved successfully")
+    print("Processing the data")
     processed_data = process_result(result, config)
     if processed_data is None:
         print("Processed data is None, aborting execution.")
         sys.exit(1)
-    save_result(processed_data, config)
+    print("Data processed successfully")
+    print("Saving data")
+    saved_path = save_result(processed_data, config)
+    if saved_path is None:
+        print("Error while saving the data.")
+        sys.exit(1)
+    print(f"Success saving data at: {saved_path}")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,16 @@ $python3 opencost_parquet_exporter.py
 $ls /tmp/cluster=YOUR_CLUSTER_NAME
 ```
 
+### Use docker image to export yesterday data
+1. Pull the docker image from github package
+2. Create a directory where the export is going to be saved.
+``` $mkdir exported_data ```
+3. Create the proxy connection with kubectl
+``` kubectl --context CONTEXT --as admin --as-group "system:masters" -n opencost port-forward service/opencost 9003:9003 --address=IP_ADDRESS ```
+Where IP_ADDREQSS is your local  machine IP.
+4. Run the docker image that you pulled on step one, here it is called opencost_parquet_exporter:latest, for example
+```docker run -e OPENCOST_PARQUET_SVC_HOSTNAME=IP_ADDRESS --mount src=`pwd`/exported_data,target=/tmp,type=bind opencost_parquet_exporter:latest ```
+
 ## Backfill old data.
 
 You can only backfill data that is still available in the opencost API.
@@ -151,9 +161,9 @@ TBLPROPERTIES (
 # TODO
 
 The following tasks need to be completed:
-* Add testing to the code
-* Create a docker image
-* Configure the automated build for the docker image
+* Add testing to the code [DONE]
+* Create a docker image [DONE]
+* Configure the automated build for the docker image [DONE]
 * Create example k8s cron job resource configuration
 * Create Helm chart
 * Improve script to set data_types using a k8s configmap
