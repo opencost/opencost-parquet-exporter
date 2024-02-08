@@ -279,7 +279,7 @@ def main():
     Main function to execute the workflow of fetching, processing, and saving data
     for yesterday.
     """
-    print("Starting run for yesterday data")
+    print("Starting run")
     config = get_config()
     print(config)
     print("Retrieving data from opencost api")
