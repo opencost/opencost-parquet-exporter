@@ -1,9 +1,9 @@
 """ Test cases for opencost-parquet-exporter."""
 import unittest
-from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 import os
 import requests
+from freezegun import freeze_time
 from opencost_parquet_exporter import get_config, request_data
 
 class TestGetConfig(unittest.TestCase):
@@ -25,11 +25,11 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config['params'][0][1], '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
             self.assertEqual(config['s3_bucket'], 's3://test-bucket')
 
-    def test_get_config_defaults(self):
+    @freeze_time("2024-01-31")
+    def test_get_config_defaults_last_day_of_month(self):
         """Test get_config returns correct defaults when no env vars are set."""
         with patch.dict(os.environ, {}, clear=True):
-            yesterday = datetime.strftime(
-                datetime.now() - timedelta(1), '%Y-%m-%d')
+            yesterday = '2024-01-30'
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
             window = f"{window_start},{window_end}"
@@ -40,14 +40,29 @@ class TestGetConfig(unittest.TestCase):
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
 
+    @freeze_time("2024-02-01")
+    def test_get_config_defaults_first_day_of_month(self):
+        """Test get_config returns correct defaults when no env vars are set."""
+        with patch.dict(os.environ, {}, clear=True):
+            yesterday = '2024-01-31'
+            window_start = yesterday+'T00:00:00Z'
+            window_end = yesterday+'T23:59:59Z'
+            window = f"{window_start},{window_end}"
+
+            config = get_config()
+            self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
+            self.assertTrue(config['file_key_prefix'], '/tmp/')
+            self.assertNotIn('s3_bucket', config)
+            self.assertEqual(config['params'][0][1], window)
+
+    @freeze_time("2024-01-11")
     def test_get_config_no_window_start(self):
         """Test get_config returns correct defaults when window start
         is not set. It should set window to yesterday"""
         with patch.dict(os.environ, {
                 'OPENCOST_PARQUET_WINDOW_END': '2020-01-01T23:59:59Z'
         }, clear=True):
-            yesterday = datetime.strftime(
-                datetime.now() - timedelta(1), '%Y-%m-%d')
+            yesterday = '2024-01-10'
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
             window = f"{window_start},{window_end}"
@@ -57,14 +72,14 @@ class TestGetConfig(unittest.TestCase):
             self.assertTrue(config['file_key_prefix'], '/tmp/')
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
+    @freeze_time('2024-12-20')
     def test_get_config_no_window_end(self):
         """Test get_config returns correct defaults when window end
         is not set. It should set window to yesterday"""
         with patch.dict(os.environ, {
                 'OPENCOST_PARQUET_WINDOW_START': '2020-01-01T00:00:00Z'
         }, clear=True):
-            yesterday = datetime.strftime(
-                datetime.now() - timedelta(1), '%Y-%m-%d')
+            yesterday = '2024-12-19'
             window_start = yesterday+'T00:00:00Z'
             window_end = yesterday+'T23:59:59Z'
             window = f"{window_start},{window_end}"
