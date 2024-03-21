@@ -1,0 +1,13 @@
+numpy==1.26.3
+pandas==2.1.4
+boto3==1.34.21
+requests==2.31.0
+python-dateutil==2.8.2
+pytz==2023.3.post1
+six==1.16.0
+tzdata==2023.4
+pyarrow==14.0.1
+# The dependencies bellow are only used for development.
+freezegun==1.4.0
+pylint==3.0.3
+pytest==7.4.4
