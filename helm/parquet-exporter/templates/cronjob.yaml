@@ -5,7 +5,7 @@ kind: CronJob
 metadata:
   annotations:
     iam.amazonaws.com/role: staging-opencost # TODO
-  name: {{ include "parquet-exporter.releaseName" $ }}-{{ $jobname }}
+  name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }}
   labels:
     {{- include "parquet-exporter.labels" $ | nindent 4 }}
 spec:
@@ -16,43 +16,39 @@ spec:
   suspend: {{ $job.suspend }}
   jobTemplate:
     metadata:
-      name: {{ include "parquet-exporter.releaseName" $ }}-{{ $jobname }} 
+      name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }} 
     spec:
       activeDeadlineSeconds: 3600 # TODO
       ttlSecondsAfterFinished: 14400 # TODO
       template:
         metadata:
           labels:
-            app: {{ include "parquet-exporter.releaseName" $ }}
+            app: {{ include "parquet-exporter.name" $ }}
             cron: {{ $jobname }}
-          name: {{ include "parquet-exporter.releaseName" $ }}-{{ $jobname }} # TODO Is this a duplicate of the jobtemplates.metadata.name
+          name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }} # TODO Is this a duplicate of the jobtemplates.metadata.name
         spec: # TODO DUPLICATE KEY  
-          {{- if hasKey $job "imagePullSecrets" }}
-            imagePullSecrets:
-            - name: {{ $.Release.Name }}-docker # TODO What does this do?
+          {{- if hasKey $job "imagePullSecrets" }} # TODO
+          imagePullSecrets:
+          - name: docker # TODO What does this do?
           {{- end }}
           {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
-            serviceAccountName: {{ $job.serviceAccount.name }}
-            # TODO
-            # serviceAccount: K8S_SERVICE_ACCOUNT_CHANGE_ME
-            # serviceAccountName: K8S_SERVICE_ACCOUNT_NAME_CHANGE_ME
+          serviceAccountName: {{ $job.serviceAccount.name }}-{{ $jobname}} # TODO
           {{- else }}
-            serviceAccountName: {{ $.Release.Name}}-{{ $jobname }}
-            # TODO
-            # serviceAccount: K8S_SERVICE_ACCOUNT_CHANGE_ME
-            # serviceAccountName: K8S_SERVICE_ACCOUNT_NAME_CHANGE_ME
+          serviceAccountName: {{ $job.serviceAccount.name }}-{{ $jobname }} # TODO
           {{- end }}
           {{- if hasKey $job "securityContext" }}
             {{- if $job.securityContext.runAsUser }}
-            securityContext:
-              runAsUser: {{ $job.securityContext.runAsUser }}
+          securityContext:
+            runAsUser: {{ $job.securityContext.runAsUser }}
               {{- if $job.securityContext.runAsGroup }}
-              runAsGroup: {{ $job.securityContext.runAsGroup }}
+            runAsGroup: {{ $job.securityContext.runAsGroup }}
               {{- end }}
               {{- if $job.securityContext.fsGroup }}
-              fsGroup: {{ $job.securityContext.fsGroup }}
+            fsGroup: {{ $job.securityContext.fsGroup }}
               {{- end }}
             {{- end }}
+          {{- else}}
+          securityContext: {}
           {{- end }}
           terminationMessagePath: /dev/termination-log # TODO
           terminationMessagePolicy: File # TODO
@@ -60,29 +56,29 @@ spec:
             - image: {{ $job.image.repository }}:{{ $job.image.tag }}
               imagePullPolicy: {{ $job.image.imagePullPolicy }}
               name: {{ $jobname }}
-              
               {{- with $job.env }}
               env:
-    {{ toYaml . | indent 12 }}
+{{ toYaml . | indent 14 }}
               {{- end }}
               {{- with $job.envFrom }}
               envFrom:
-    {{ toYaml . | indent 12 }}
-              {{- end }}       
+{{ toYaml . | indent 14 }}
+              {{- end }}    
               {{- with $job.resources }}
               resources:
-    {{ toYaml . | indent 14 }}
+{{ toYaml . | indent 16 }}
               {{- end }}
           {{- with $job.dnsConfig }}
-            dnsConfig:
-    {{ toYaml . | indent 14 }}
+          dnsConfig:
+{{ toYaml . | indent 12 }}
           {{- end }}
           {{- if $job.securityContext.runAsGroup }}
-            dnsPolicy: {{ $job.dnsPolicy }}
+          dnsPolicy: {{ $job.dnsPolicy }}
           {{- end }}
           {{- if $job.securityContext.runAsGroup }}
-            restartPolicy: {{ $job.restartPolicy }}
+          restartPolicy: {{ $job.restartPolicy }}
           {{- end }}                         
-          {{- if $job.terminationGracePeriodSeconds }}
-            terminationGracePeriodSeconds: {{ $job.terminationGracePeriodSeconds}}
-          {{- end-}} 
+      {{- if $job.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ $job.terminationGracePeriodSeconds}}
+      {{- end }}
+    {{- end }} 
