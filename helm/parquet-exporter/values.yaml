@@ -24,7 +24,6 @@ job:
     repository: ghcr.io/opencost/opencost-parquet-exporter
     tag: latest
     imagePullPolicy: Always
-  # optional env vars
   env:
     - name: AWS_REGION
       value: us-west-2
