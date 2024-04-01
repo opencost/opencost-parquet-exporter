@@ -1,84 +1,72 @@
-{{- range $jobname, $job := .Values.jobs }}
----
 apiVersion: batch/v1
 kind: CronJob
 metadata:
+  name: {{ include "parquet-exporter.name" $ }}
   annotations:
-    iam.amazonaws.com/role: staging-opencost # TODO
-  name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }}
+{{- include "parquet-exporter.annotations" $ | indent 4 }}
   labels:
-    {{- include "parquet-exporter.labels" $ | nindent 4 }}
+{{ include "parquet-exporter.labels" . | indent 4 }}
 spec:
-  concurrencyPolicy: {{ $job.concurrencyPolicy }}
-  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
-  schedule: {{ $job.schedule }}
-  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
-  suspend: {{ $job.suspend }}
+  concurrencyPolicy: {{ .Values.job.concurrencyPolicy | quote}}
+  failedJobsHistoryLimit: {{ .Values.job.failedJobsHistoryLimit }}
+  schedule: {{ .Values.job.schedule | quote}}
+  successfulJobsHistoryLimit: {{ .Values.job.successfulJobsHistoryLimit }}
+  suspend: {{ .Values.job.suspend }}
   jobTemplate:
     metadata:
-      name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }} 
+      name: {{ include "parquet-exporter.name" $ }}
     spec:
-      activeDeadlineSeconds: 3600 # TODO
-      ttlSecondsAfterFinished: 14400 # TODO
+      activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds }}
+      ttlSecondsAfterFinished: {{ .Values.job.activeDeadlineSeconds }}
       template:
         metadata:
+          annotations:
+            {{- include "parquet-exporter.annotations" $ | indent 12 }}
           labels:
-            app: {{ include "parquet-exporter.name" $ }}
-            cron: {{ $jobname }}
-          name: {{ include "parquet-exporter.name" $ }}-{{ $jobname }} # TODO Is this a duplicate of the jobtemplates.metadata.name
-        spec: # TODO DUPLICATE KEY  
-          {{- if hasKey $job "imagePullSecrets" }} # TODO
+{{ include "parquet-exporter.labels" . | indent 12 }}
+          name: {{ include "parquet-exporter.name" $ }}
+        spec:
+          {{- if .Values.job.imagePullSecrets }}
+          {{- with .Values.job.imagePullSecrets }} 
           imagePullSecrets:
-          - name: docker # TODO What does this do?
+{{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
-          serviceAccountName: {{ $job.serviceAccount.name }}-{{ $jobname}} # TODO
-          {{- else }}
-          serviceAccountName: {{ $job.serviceAccount.name }}-{{ $jobname }} # TODO
           {{- end }}
-          {{- if hasKey $job "securityContext" }}
-            {{- if $job.securityContext.runAsUser }}
+          {{- if and (hasKey .Values.job "serviceAccount") (hasKey .Values.job.serviceAccount "name") }}
+          serviceAccountName: {{ .Values.job.serviceAccount.name }}
+          {{- end }}
+          {{- if hasKey .Values.job "securityContext" }}
+          {{- with .Values.job.securityContext }} 
           securityContext:
-            runAsUser: {{ $job.securityContext.runAsUser }}
-              {{- if $job.securityContext.runAsGroup }}
-            runAsGroup: {{ $job.securityContext.runAsGroup }}
-              {{- end }}
-              {{- if $job.securityContext.fsGroup }}
-            fsGroup: {{ $job.securityContext.fsGroup }}
-              {{- end }}
-            {{- end }}
+{{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- else}}
           securityContext: {}
           {{- end }}
-          terminationMessagePath: /dev/termination-log # TODO
-          terminationMessagePolicy: File # TODO
           containers:
-            - image: {{ $job.image.repository }}:{{ $job.image.tag }}
-              imagePullPolicy: {{ $job.image.imagePullPolicy }}
-              name: {{ $jobname }}
-              {{- with $job.env }}
-              env:
-{{ toYaml . | indent 14 }}
-              {{- end }}
-              {{- with $job.envFrom }}
-              envFrom:
-{{ toYaml . | indent 14 }}
-              {{- end }}    
-              {{- with $job.resources }}
+            - image: {{ .Values.job.image.repository }}:{{ .Values.job.image.tag }}
+              imagePullPolicy: {{ .Values.job.image.imagePullPolicy }}
+              name: {{ include "parquet-exporter.name" $ }} 
+              {{- with .Values.job.resources }}
               resources:
 {{ toYaml . | indent 16 }}
               {{- end }}
-          {{- with $job.dnsConfig }}
+              {{- with .Values.job.env }}
+              env:
+{{ toYaml . | indent 16 }}
+              {{- end }}
+              {{- with .Values.job.envFrom }}
+              envFrom:
+{{ toYaml . | indent 16 }}
+              {{- end }}    
+          {{- with .Values.job.dnsConfig }}
           dnsConfig:
 {{ toYaml . | indent 12 }}
           {{- end }}
-          {{- if $job.securityContext.runAsGroup }}
-          dnsPolicy: {{ $job.dnsPolicy }}
+          {{- if .Values.job.securityContext.runAsGroup }}
+          dnsPolicy: {{ .Values.job.dnsPolicy }}
           {{- end }}
-          {{- if $job.securityContext.runAsGroup }}
-          restartPolicy: {{ $job.restartPolicy }}
-          {{- end }}                         
-      {{- if $job.terminationGracePeriodSeconds }}
-      terminationGracePeriodSeconds: {{ $job.terminationGracePeriodSeconds}}
-      {{- end }}
-    {{- end }} 
+          restartPolicy: {{ .Values.job.restartPolicy }}
+          {{- if .Values.job.terminationGracePeriodSeconds }}
+          terminationGracePeriodSeconds: {{ .Values.job.terminationGracePeriodSeconds}}
+          {{- end }}

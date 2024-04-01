@@ -1,66 +1,58 @@
-replicaCount: 1
-
 nameOverride: ""
 fullnameOverride: ""
 
+awsRolename: testrole
 
-
-jobs:
-  <job_name>: 
-    concurrencyPolicy: <concurrency_policy>
-    failedJobsHistoryLimit: <failed_history_limit>
-    schedule: <schedule>
-    successfulJobsHistoryLimit: <successful_limit>
-    suspend: <true/false>
-    imagePullSecrets:
-    - username: fred
-      password: password
-      registry: docker.io
-    serviceAccount:
-      name: <serviceaccount_name>
-    securityContext:
-      runAsUser: <security_context_user>
-      runAsGroup: <security_context_group>
-      fsGroup: <security_context_fs_group>
-    image:
-      repository: <image_repo>
-      tag: <image_tag>
-      imagePullPolicy: <pull_policy>
-    # optional env vars
-    env:
-    - name: ECHO_VAR
-      value: "busybox"
-    envFrom:
-    - secretRef:
-        name: secret_data
-    - configMapRef:
-        name: config_data
-    resources:
-      limits:
-        cpu: <cpu_limit>
-        memory: <memory_limit>
-      requests:
-        cpu: <cpu_request>
-        memory: <memory_request>
-    dnsConfig:
-      options:
+job:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  schedule: "* * * * *" 
+  successfulJobsHistoryLimit: 3
+  suspend: false
+  activeDeadlineSeconds: 3600
+  ttlSecondsAfterFinished: 14400
+  serviceAccount:
+    name: opencost
+  securityContext:
+    runAsUser: 1001
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+      - ALL
+  image:
+    repository: ghcr.io/opencost/opencost-parquet-exporter
+    tag: latest
+    imagePullPolicy: Always
+  # optional env vars
+  env:
+    - name: AWS_REGION
+      value: us-west-2
+    - name: KUBE_CLUSTER
+      value: YOUR_CLUSTER_NAME_CHANGE_ME
+    - name: OPENCOST_PARQUET_FILE_KEY_PREFIX
+      value: cluster=$(KUBE_CLUSTER)
+    - name: OPENCOST_PARQUET_S3_BUCKET
+      value: YOUR_S3_BUCKET_NAME_CHANGE_ME
+    - name: OPENCOST_PARQUET_S3_REGION
+      value: YOUR_S3_BUCKET_REGION_NAME_CHANGE_ME
+    - name: OPENCOST_PARQUET_SVC_HOSTNAME
+      value: opencost.opencost.svc.cluster.local.
+    - name: OPENCOST_PARQUET_SVC_PORT
+      value: "9003"
+  envFrom:
+  resources:
+    limits:
+      cpu: 2
+      memory: 5Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+  dnsConfig:
+    options:
       - name: single-request-reopen
       - name: ndots
         value: "2"
-    dnsPolicy: <dns_policy>
-    restartPolicy: <restart_policy>
-
-    
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 30
