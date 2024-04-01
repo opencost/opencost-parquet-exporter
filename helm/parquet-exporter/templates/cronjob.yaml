@@ -12,6 +12,7 @@ spec:
   schedule: {{ .Values.schedule | quote}}
   successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
   suspend: {{ .Values.suspend }}
+  backoffLimit: 3
   jobTemplate:
     metadata:
       name: {{ include "parquet-exporter.name" $ }}
