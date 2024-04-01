@@ -12,13 +12,13 @@ spec:
   schedule: {{ .Values.schedule | quote}}
   successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
   suspend: {{ .Values.suspend }}
-  backoffLimit: 3
   jobTemplate:
     metadata:
       name: {{ include "parquet-exporter.name" $ }}
     spec:
       activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
       ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+      backoffLimit: 3
       template:
         metadata:
           annotations:
