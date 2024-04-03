@@ -25,7 +25,7 @@ securityContext:
     - ALL
 image:
   repository: ghcr.io/opencost/opencost-parquet-exporter
-  tag: latest
+  tag: main@sha256:29a5d8e7fb4af97c93f91b4d29872512d93080f88303047ff31cd3b263b48e4f
   imagePullPolicy: Always
 # -- List of env vars
 env:
