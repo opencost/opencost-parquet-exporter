@@ -1,15 +1,16 @@
-"""OpenCost parquet exporter.
-
-This module exports data from OpenCost API to parquet format, making it suitable
-for further analysis or storage in data warehouses.
-"""
 import sys
 from datetime import datetime, timedelta
 import os
 import pandas as pd
 import requests
 import botocore.exceptions as boto_exceptions
+import json
+from storage_factory import get_storage
 
+def load_config_file(file_path: str):
+    with open(file_path, 'r') as file:
+        config = json.load(file)
+    return config
 
 def get_config(
         hostname=None,
@@ -19,7 +20,9 @@ def get_config(
         s3_bucket=None,
         file_key_prefix=None,
         aggregate_by=None,
-        step=None):
+        step=None,
+        storage_backend=None,
+        ):
     """
     Get configuration for the parquet exporter based on either provided
     parameters or environment variables.
@@ -48,10 +51,13 @@ def get_config(
     - step (str): Granularity for the data aggregation,
                   defaults to the 'OPENCOST_PARQUET_STEP' environment variable,
                   or '1h' if not set.
+    - storage_backend (str): Backend of the storage service (aws or azure), 
+                             defaults to the 'OPENCOST_PARQUET_STORAGE_BACKEND' environment variable, 
+                             or 'aws' if not set
 
     Returns:
     - dict: Configuration dictionary with keys for 'url', 'params', 's3_bucket',
-            'file_key_prefix', 'data_types', 'ignored_alloc_keys', and 'rename_columns_config'.
+            'file_key_prefix' and 'window_start'.
     """
     config = {}
 
@@ -69,16 +75,30 @@ def get_config(
     if s3_bucket is None:
         s3_bucket = os.environ.get('OPENCOST_PARQUET_S3_BUCKET', None)
     if file_key_prefix is None:
-        file_key_prefix = os.environ.get('OPENCOST_PARQUET_FILE_KEY_PREFIX', '/tmp/')
+        file_key_prefix = os.environ.get('OPENCOST_PARQUET_FILE_KEY_PREFIX', '/tmp/') # TODO: Discuss: Format guideline?
     if aggregate_by is None:
         aggregate_by = os.environ.get('OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
     if step is None:
         step = os.environ.get('OPENCOST_PARQUET_STEP', '1h')
-
+    if storage_backend is None:
+         storage_backend = os.environ.get('OPENCOST_PARQUET_STORAGE_BACKEND', 'aws') # For backward compatibility
+    
     if s3_bucket is not None:
         config['s3_bucket'] = s3_bucket
+    config['storage_backend'] = storage_backend
     config['url'] = f"http://{hostname}:{port}/allocation/compute"
     config['file_key_prefix'] = file_key_prefix
+
+    # Azure-specific configuration
+    if config['storage_backend'] == 'azure':
+        config.update({
+            'azure_storage_account_name': os.environ.get('OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME'),
+            'azure_container_name': os.environ.get('OPENCOST_PARQUET_AZURE_CONTAINER_NAME'),
+            'azure_tenant': os.environ.get('OPENCOST_PARQUET_AZURE_TENANT'),
+            'azure_application_id': os.environ.get('OPENCOST_PARQUET_AZURE_APPLICATION_ID'),
+            'azure_application_secret': os.environ.get('OPENCOST_PARQUET_AZURE_APPLICATION_SECRET'),
+        })
+
     # If window is not specified assume we want yesterday data.
     if window_start is None or window_end is None:
         yesterday = datetime.strftime(
@@ -86,6 +106,7 @@ def get_config(
         window_start = yesterday+'T00:00:00Z'
         window_end = yesterday+'T23:59:59Z'
     window = f"{window_start},{window_end}"
+    config['window_start'] = window_start
     config['params'] = (
         ("window", window),
         ("aggregate", aggregate_by),
@@ -93,67 +114,11 @@ def get_config(
         ("idleByNode", "false"),
         ("includeProportionalAssetResourceCosts", "false"),
         ("format", "json"),
-        ("step", step)
+        ("step", step), # TODO: make this optional
+        ("accumulate", "true") # TODO: Make this one a variable
     )
-    # This is required to ensure consistency without this
-    # we could have type change from int to float over time
-    # And this will result in an HIVE PARTITION SCHEMA MISMATCH
-    config['data_types'] = {
-        'cpuCoreHours': 'float',
-        'cpuCoreRequestAverage': 'float',
-        'cpuCoreUsageAverage': 'float',
-        'cpuCores': 'float',
-        'cpuCost': 'float',
-        'cpuCostAdjustment': 'float',
-        'cpuEfficiency': 'float',
-        'externalCost': 'float',
-        'gpuCost': 'float',
-        'gpuCostAdjustment': 'float',
-        'gpuCount': 'float',
-        'gpuHours': 'float',
-        'loadBalancerCost': 'float',
-        'loadBalancerCostAdjustment': 'float',
-        'networkCost': 'float',
-        'networkCostAdjustment': 'float',
-        'networkCrossRegionCost': 'float',
-        'networkCrossZoneCost': 'float',
-        'networkInternetCost': 'float',
-        'networkReceiveBytes': 'float',
-        'networkTransferBytes': 'float',
-        'pvByteHours': 'float',
-        'pvBytes': 'float',
-        'pvCost': 'float',
-        'pvCostAdjustment': 'float',
-        'ramByteHours': 'float',
-        'ramByteRequestAverage': 'float',
-        'ramByteUsageAverage': 'float',
-        'ramBytes': 'float',
-        'ramCost': 'float',
-        'ramCostAdjustment': 'float',
-        'ramEfficiency': 'float',
-        'running_minutes': 'float',
-        'sharedCost': 'float',
-        'totalCost': 'float',
-        'totalEfficiency': 'float'
-    }
-    config['ignored_alloc_keys'] = ['pvs', 'lbAllocations']
-    config['rename_columns_config'] = {
-        'start': 'running_start_time',
-        'end': 'running_end_time',
-        'minutes': 'running_minutes',
-        'properties.labels.node_type': 'label.node_type',
-        'properties.labels.product': 'label.product',
-        'properties.labels.project': 'label.project',
-        'properties.labels.role': 'label.role',
-        'properties.labels.team': 'label.team',
-        'properties.namespaceLabels.product': 'namespaceLabels.product',
-        'properties.namespaceLabels.project': 'namespaceLabels.project',
-        'properties.namespaceLabels.role': 'namespaceLabels.role',
-        'properties.namespaceLabels.team': 'namespaceLabels.team'
-    }
-    config['window_start'] = window_start
+    
     return config
-
 
 def request_data(config):
     """
@@ -186,14 +151,14 @@ def request_data(config):
         print(f"Request error: {err}")
         return None
 
-
-def process_result(result, config):
+def process_result(result, ignored_alloc_keys, rename_cols, data_types):
     """
     Process raw results from the OpenCost API data request.
-
     Parameters:
     - result (dict): Raw response data from the OpenCost API.
-    - config (dict): Configuration dictionary with data types and other processing options.
+    - ignored_alloc_keys (dict): Allocation keys to ignore
+    - rename_cols (dict): Key-value pairs for coloumns to rename
+    - data_types (dict): Data types for properties of OpenCost response 
 
     Returns:
     - DataFrame or None: Processed data as a Pandas DataFrame, or None if an error occurs.
@@ -204,14 +169,13 @@ def process_result(result, config):
         split.pop('__unmounted__/__unmounted__/__unmounted__', None)
     for split in result:
         for alloc_name in split.keys():
-            for ignored_key in config['ignored_alloc_keys']:
+            for ignored_key in ignored_alloc_keys:
                 split[alloc_name].pop(ignored_key, None)
     try:
         frames = [pd.json_normalize(split.values()) for split in result]
         processed_data = pd.concat(frames)
-        processed_data.rename(
-            columns=config['rename_columns_config'], inplace=True)
-        processed_data = processed_data.astype(config['data_types'])
+        processed_data.rename(columns=rename_cols, inplace=True)
+        processed_data = processed_data.astype(data_types)
     except pd.errors.EmptyDataError as err:
         print(f"No data: {err}")
         return None
@@ -229,7 +193,6 @@ def process_result(result, config):
         return None
     return processed_data
 
-
 def save_result(processed_result, config):
     """
     Save the processed result either to the local filesystem or an S3 bucket
@@ -243,64 +206,51 @@ def save_result(processed_result, config):
     Returns:
     - uri : String with the path where the data was saved.
     """
-    file_name = 'k8s_opencost.parquet'
-    window = datetime.strptime(config['window_start'], "%Y-%m-%dT%H:%M:%SZ")
-    parquet_prefix = f"{config['file_key_prefix']}/year={window.year}"\
-                     f"/month={window.month}/day={window.day}"
-    try:
-        if config.get('s3_bucket', None):
-            uri = f"s3://{config['s3_bucket']}/{parquet_prefix}/{file_name}"
-        else:
-            uri = f"file://{parquet_prefix}/{file_name}"
-            path = '/'+parquet_prefix
-            os.makedirs(path, 0o750, exist_ok=True)
-        processed_result.to_parquet(uri)
-        return uri
-    except pd.errors.EmptyDataError as ede:
-        print(f"Error: No data to save, the DataFrame is empty.{ede}")
-    except KeyError as ke:
-        print(f"Missing configuration key: {ke}")
-    except ValueError as ve:
-        print(f"Error parsing date format: {ve}")
-    except FileNotFoundError as fnfe:
-        print(f"File or directory not found: {fnfe}")
-    except PermissionError as pe:
-        print(f"Permission error: {pe}")
-    except boto_exceptions.NoCredentialsError:
-        print("Error: No AWS credentials found to access S3")
-    except boto_exceptions.PartialCredentialsError:
-        print("Error: Incomplete AWS credentials provided for accessing S3")
-    except boto_exceptions.ClientError as ce:
-        print(f"AWS Client Error: {ce}")
-    return None
+    # TODO: Handle save to local file system. Make it default maybe? 
+    storage = get_storage(storage_backend=config['storage_backend'])
+    uri = storage.save_data(data=processed_result, config=config)
+    if uri:
+        print(f"Data successfully saved at: {uri}")
+    else:
+        print("Failed to save data.")
+        sys.exit(1)
 
 def main():
-    """
-    Main function to execute the workflow of fetching, processing, and saving data
-    for yesterday.
-    """
+    # TODO: Error handling when load fails
     print("Starting run")
+    print("Load data types")
+    data_types = load_config_file(file_path='./src/data_types.json')  # TODO: Make path ENV var
+    print(type(data_types))
+    print("Load renaming coloumns")
+    rename_cols = load_config_file(file_path='./src/rename_cols.json')  # TODO: Make path ENV var
+    print(type(rename_cols))
+    print("Load allocation keys to ignore")
+    ignore_alloc_keys = load_config_file(file_path='./src/ignore_alloc_keys.json')  # TODO: Make path ENV var
+    print(type(ignore_alloc_keys))
+    
+    print("Build config")
     config = get_config()
     print(config)
     print("Retrieving data from opencost api")
-    result = request_data(config)
+    result = request_data(config=config)
     if result is None:
         print("Result is None. Aborting execution")
         sys.exit(1)
     print("Opencost data retrieved successfully")
+    
     print("Processing the data")
-    processed_data = process_result(result, config)
+    processed_data = process_result(
+        result=result,
+        ignored_alloc_keys=ignore_alloc_keys,
+        rename_cols=rename_cols,
+        data_types=data_types)
     if processed_data is None:
         print("Processed data is None, aborting execution.")
         sys.exit(1)
     print("Data processed successfully")
+    
     print("Saving data")
-    saved_path = save_result(processed_data, config)
-    if saved_path is None:
-        print("Error while saving the data.")
-        sys.exit(1)
-    print(f"Success saving data at: {saved_path}")
-
+    save_result(processed_data, config)
 
 if __name__ == "__main__":
     main()
