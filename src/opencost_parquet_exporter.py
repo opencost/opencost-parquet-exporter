@@ -1,16 +1,32 @@
+# pylint: disable=W0511
+
+"""
+This module provides an implementation of the OpenCost storage exporter.
+"""
+
 import sys
 from datetime import datetime, timedelta
 import os
+import json
 import pandas as pd
 import requests
-import botocore.exceptions as boto_exceptions
-import json
 from storage_factory import get_storage
 
+
 def load_config_file(file_path: str):
-    with open(file_path, 'r') as file:
+    """
+    Loads and returns the a JSON file specified by the file path.
+
+    Parameters:
+        file_path (str): The path to the JSON configuration file.
+
+    Returns:
+        dict: A dictionary containing the loaded JSON file.
+    """
+    with open(file_path, 'r', encoding="utf-8") as file:
         config = json.load(file)
     return config
+
 
 def get_config(
         hostname=None,
@@ -22,7 +38,7 @@ def get_config(
         aggregate_by=None,
         step=None,
         storage_backend=None,
-        ):
+):
     """
     Get configuration for the parquet exporter based on either provided
     parameters or environment variables.
@@ -52,7 +68,7 @@ def get_config(
                   defaults to the 'OPENCOST_PARQUET_STEP' environment variable,
                   or '1h' if not set.
     - storage_backend (str): Backend of the storage service (aws or azure), 
-                             defaults to the 'OPENCOST_PARQUET_STORAGE_BACKEND' environment variable, 
+                             defaults to the 'OPENCOST_PARQUET_STORAGE_BACKEND' ENV var, 
                              or 'aws' if not set
 
     Returns:
@@ -75,14 +91,18 @@ def get_config(
     if s3_bucket is None:
         s3_bucket = os.environ.get('OPENCOST_PARQUET_S3_BUCKET', None)
     if file_key_prefix is None:
-        file_key_prefix = os.environ.get('OPENCOST_PARQUET_FILE_KEY_PREFIX', '/tmp/') # TODO: Discuss: Format guideline?
+        # TODO: Discuss: Format guideline?
+        file_key_prefix = os.environ.get(
+            'OPENCOST_PARQUET_FILE_KEY_PREFIX', '/tmp/')
     if aggregate_by is None:
-        aggregate_by = os.environ.get('OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
+        aggregate_by = os.environ.get(
+            'OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
     if step is None:
         step = os.environ.get('OPENCOST_PARQUET_STEP', '1h')
     if storage_backend is None:
-         storage_backend = os.environ.get('OPENCOST_PARQUET_STORAGE_BACKEND', 'aws') # For backward compatibility
-    
+        storage_backend = os.environ.get(
+            'OPENCOST_PARQUET_STORAGE_BACKEND', 'aws')  # For backward compatibility
+
     if s3_bucket is not None:
         config['s3_bucket'] = s3_bucket
     config['storage_backend'] = storage_backend
@@ -92,6 +112,7 @@ def get_config(
     # Azure-specific configuration
     if config['storage_backend'] == 'azure':
         config.update({
+            # pylint: disable=C0301
             'azure_storage_account_name': os.environ.get('OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME'),
             'azure_container_name': os.environ.get('OPENCOST_PARQUET_AZURE_CONTAINER_NAME'),
             'azure_tenant': os.environ.get('OPENCOST_PARQUET_AZURE_TENANT'),
@@ -114,11 +135,12 @@ def get_config(
         ("idleByNode", "false"),
         ("includeProportionalAssetResourceCosts", "false"),
         ("format", "json"),
-        ("step", step), # TODO: make this optional
-        ("accumulate", "true") # TODO: Make this one a variable
+        ("step", step),  # TODO: make this optional
+        ("accumulate", "true")  # TODO: Make this one a variable
     )
-    
+
     return config
+
 
 def request_data(config):
     """
@@ -138,7 +160,7 @@ def request_data(config):
             params=params,
             # 15 seconds connect timeout
             # No read timeout, in case it takes a long
-            timeout=(15,None)
+            timeout=(15, None)
         )
         response.raise_for_status()
         if 'application/json' in response.headers['content-type']:
@@ -150,6 +172,7 @@ def request_data(config):
             requests.exceptions.TooManyRedirects, ValueError, KeyError) as err:
         print(f"Request error: {err}")
         return None
+
 
 def process_result(result, ignored_alloc_keys, rename_cols, data_types):
     """
@@ -193,6 +216,7 @@ def process_result(result, ignored_alloc_keys, rename_cols, data_types):
         return None
     return processed_data
 
+
 def save_result(processed_result, config):
     """
     Save the processed result either to the local filesystem or an S3 bucket
@@ -206,7 +230,7 @@ def save_result(processed_result, config):
     Returns:
     - uri : String with the path where the data was saved.
     """
-    # TODO: Handle save to local file system. Make it default maybe? 
+    # TODO: Handle save to local file system. Make it default maybe?
     storage = get_storage(storage_backend=config['storage_backend'])
     uri = storage.save_data(data=processed_result, config=config)
     if uri:
@@ -215,19 +239,25 @@ def save_result(processed_result, config):
         print("Failed to save data.")
         sys.exit(1)
 
+# pylint: disable=C0116
+
+
 def main():
     # TODO: Error handling when load fails
     print("Starting run")
     print("Load data types")
-    data_types = load_config_file(file_path='./src/data_types.json')  # TODO: Make path ENV var
+    data_types = load_config_file(
+        file_path='./src/data_types.json')  # TODO: Make path ENV var
     print(type(data_types))
     print("Load renaming coloumns")
-    rename_cols = load_config_file(file_path='./src/rename_cols.json')  # TODO: Make path ENV var
+    rename_cols = load_config_file(
+        file_path='./src/rename_cols.json')  # TODO: Make path ENV var
     print(type(rename_cols))
     print("Load allocation keys to ignore")
-    ignore_alloc_keys = load_config_file(file_path='./src/ignore_alloc_keys.json')  # TODO: Make path ENV var
+    ignore_alloc_keys = load_config_file(
+        file_path='./src/ignore_alloc_keys.json')  # TODO: Make path ENV var
     print(type(ignore_alloc_keys))
-    
+
     print("Build config")
     config = get_config()
     print(config)
@@ -237,7 +267,7 @@ def main():
         print("Result is None. Aborting execution")
         sys.exit(1)
     print("Opencost data retrieved successfully")
-    
+
     print("Processing the data")
     processed_data = process_result(
         result=result,
@@ -248,9 +278,10 @@ def main():
         print("Processed data is None, aborting execution.")
         sys.exit(1)
     print("Data processed successfully")
-    
+
     print("Saving data")
     save_result(processed_data, config)
+
 
 if __name__ == "__main__":
     main()

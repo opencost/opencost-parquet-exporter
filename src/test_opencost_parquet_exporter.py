@@ -6,8 +6,10 @@ import requests
 from freezegun import freeze_time
 from opencost_parquet_exporter import get_config, request_data
 
+
 class TestGetConfig(unittest.TestCase):
     """Test cases for get_config method"""
+
     def test_get_aws_config_with_env_vars(self):
         """Test get_config returns correct configurations based on environment variables."""
         with patch.dict(os.environ, {
@@ -22,8 +24,10 @@ class TestGetConfig(unittest.TestCase):
                 'OPENCOST_PARQUET_STORAGE_BACKEND': 'aws'}, clear=True):
             config = get_config()
 
-            self.assertEqual(config['url'], 'http://testhost:8080/allocation/compute')
-            self.assertEqual(config['params'][0][1], '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
+            self.assertEqual(
+                config['url'], 'http://testhost:8080/allocation/compute')
+            self.assertEqual(config['params'][0][1],
+                             '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
             self.assertEqual(config['s3_bucket'], 's3://test-bucket')
             self.assertEqual(config['storage_backend'], 'aws')
 
@@ -46,10 +50,13 @@ class TestGetConfig(unittest.TestCase):
                 'OPENCOST_PARQUET_AZURE_APPLICATION_SECRET': 'testsecret'}, clear=True):
             config = get_config()
 
-            self.assertEqual(config['url'], 'http://testhost:8080/allocation/compute')
-            self.assertEqual(config['params'][0][1], '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
+            self.assertEqual(
+                config['url'], 'http://testhost:8080/allocation/compute')
+            self.assertEqual(config['params'][0][1],
+                             '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
             self.assertEqual(config['storage_backend'], 'azure')
-            self.assertEqual(config['azure_storage_account_name'], 'testaccount')
+            self.assertEqual(
+                config['azure_storage_account_name'], 'testaccount')
             self.assertEqual(config['azure_container_name'], 'testcontainer')
             self.assertEqual(config['azure_tenant'], 'testtenant')
             self.assertEqual(config['azure_application_id'], 'testid')
@@ -65,7 +72,8 @@ class TestGetConfig(unittest.TestCase):
             window = f"{window_start},{window_end}"
 
             config = get_config()
-            self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
+            self.assertEqual(
+                config['url'], 'http://localhost:9003/allocation/compute')
             self.assertTrue(config['file_key_prefix'], '/tmp/')
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
@@ -80,7 +88,8 @@ class TestGetConfig(unittest.TestCase):
             window = f"{window_start},{window_end}"
 
             config = get_config()
-            self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
+            self.assertEqual(
+                config['url'], 'http://localhost:9003/allocation/compute')
             self.assertTrue(config['file_key_prefix'], '/tmp/')
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
@@ -98,10 +107,12 @@ class TestGetConfig(unittest.TestCase):
             window = f"{window_start},{window_end}"
 
             config = get_config()
-            self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
+            self.assertEqual(
+                config['url'], 'http://localhost:9003/allocation/compute')
             self.assertTrue(config['file_key_prefix'], '/tmp/')
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
+
     @freeze_time('2024-12-20')
     def test_get_config_no_window_end(self):
         """Test get_config returns correct defaults when window end
@@ -115,10 +126,12 @@ class TestGetConfig(unittest.TestCase):
             window = f"{window_start},{window_end}"
 
             config = get_config()
-            self.assertEqual(config['url'], 'http://localhost:9003/allocation/compute')
+            self.assertEqual(
+                config['url'], 'http://localhost:9003/allocation/compute')
             self.assertTrue(config['file_key_prefix'], '/tmp/')
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
+
 
 class TestRequestData(unittest.TestCase):
     """ Test request_data method """
