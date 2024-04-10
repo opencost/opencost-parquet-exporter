@@ -60,13 +60,13 @@ class AzureStorage(BaseStorage):
         key = f"{parquet_prefix}/{file_name}"
         blob_client = blob_service_client.get_blob_client(
             container=config['azure_container_name'], blob=key)
-        output = BytesIO()
-        data.to_csv(output, index=False)
-        output.seek(0)
+        parquet_file = BytesIO()
+        data.to_parquet(parquet_file, engine='pyarrow', index=False)
+        parquet_file.seek(0)
 
         try:
             response = blob_client.upload_blob(
-                data=output, blob_type=BlobType.BlockBlob)
+                data=parquet_file, blob_type=BlobType.BlockBlob)
             if response:
                 return f"{blob_client.url}"
         # pylint: disable=W0718
