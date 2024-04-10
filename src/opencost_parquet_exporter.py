@@ -248,19 +248,15 @@ def main():
     print("Load data types")
     data_types = load_config_file(
         file_path='./src/data_types.json')  # TODO: Make path ENV var
-    print(type(data_types))
     print("Load renaming coloumns")
     rename_cols = load_config_file(
         file_path='./src/rename_cols.json')  # TODO: Make path ENV var
-    print(type(rename_cols))
     print("Load allocation keys to ignore")
     ignore_alloc_keys = load_config_file(
         file_path='./src/ignore_alloc_keys.json')  # TODO: Make path ENV var
-    print(type(ignore_alloc_keys))
 
     print("Build config")
     config = get_config()
-    print(config)
     print("Retrieving data from opencost api")
     result = request_data(config=config)
     if result is None:
