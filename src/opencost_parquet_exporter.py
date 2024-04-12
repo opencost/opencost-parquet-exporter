@@ -155,7 +155,8 @@ def get_config(
     window = f"{window_start},{window_end}"
     config['window_start'] = window_start
     config['params'] = [
-        ("window", window),
+        # ("window", window),
+        ("window", "today"),
         ("includeIdle", include_idle),
         ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
@@ -229,9 +230,11 @@ def process_result(result, ignored_alloc_keys, rename_cols, data_types):
             for ignored_key in ignored_alloc_keys:
                 split[alloc_name].pop(ignored_key, None)
     try:
-        # TODO: make sep an ENV var with default '.'
-        frames = [pd.json_normalize(split.values(), sep='_')
-                  for split in result]
+        frames = [
+            pd.json_normalize(
+                split.values(),
+                sep=os.environ.get('OPENCOST_PARQUET_JSON_SEPARATOR', '.'))
+            for split in result]
         processed_data = pd.concat(frames)
         processed_data.rename(columns=rename_cols, inplace=True)
         processed_data = processed_data.astype(data_types)
