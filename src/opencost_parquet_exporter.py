@@ -27,6 +27,8 @@ def load_config_file(file_path: str):
         config = json.load(file)
     return config
 
+# pylint: disable=R0912,R0913,R0914,R0915
+
 
 def get_config(
         hostname=None,
@@ -37,7 +39,11 @@ def get_config(
         file_key_prefix=None,
         aggregate_by=None,
         step=None,
+        resolution=None,
+        accumulate=None,
         storage_backend=None,
+        include_idle=None,
+        idle_by_node=None,
 ):
     """
     Get configuration for the parquet exporter based on either provided
@@ -66,10 +72,22 @@ def get_config(
                           or 'namespace,pod,container' if not set.
     - step (str): Granularity for the data aggregation,
                   defaults to the 'OPENCOST_PARQUET_STEP' environment variable,
-                  or '1h' if not set.
+                  or is not used in query if not set.
+    - resolution (str): Granularity for the PromQL queries in opencost,
+                        defaults to the 'OPENCOST_PARQUET_RESOLUTION' environment variable,
+                        or is not used in query if not set.
+    - accumulate (str): Whether or not to accumulate aggregated cost,
+                        defaults to the 'OPENCOST_PARQUET_ACCUMULATE' environment variable,
+                        or is not used in query if not set.
     - storage_backend (str): Backend of the storage service (aws or azure), 
                              defaults to the 'OPENCOST_PARQUET_STORAGE_BACKEND' ENV var, 
-                             or 'aws' if not set
+                             or 'aws' if not set.
+    - include_idle (str): Whether to return the calculated __idle__ field for the query,
+                          defaults to the 'OPENCOST_PARQUET_INCLUDE_IDLE' environment 
+                          variable, or 'false' if not set.
+    - idle_by_node (str): If true, idle allocations are created on a per node basis,
+                          defaults to the 'OPENCOST_PARQUET_IDLE_BY_NODE' environment 
+                          variable, or 'false' if not set.
 
     Returns:
     - dict: Configuration dictionary with keys for 'url', 'params', 's3_bucket',
@@ -99,6 +117,14 @@ def get_config(
             'OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
     if step is None:
         step = os.environ.get('OPENCOST_PARQUET_STEP', '1h')
+    if resolution is None:
+        resolution = os.environ.get('OPENCOST_PARQUET_RESOLUTION', None)
+    if accumulate is None:
+        accumulate = os.environ.get('OPENCOST_PARQUET_ACCUMULATE', None)
+    if idle_by_node is None:
+        idle_by_node = os.environ.get('OPENCOST_PARQUET_IDLE_BY_NODE', 'false')
+    if include_idle is None:
+        include_idle = os.environ.get('OPENCOST_PARQUET_INCLUDE_IDLE', 'false')
     if storage_backend is None:
         storage_backend = os.environ.get(
             'OPENCOST_PARQUET_STORAGE_BACKEND', 'aws')  # For backward compatibility
@@ -128,16 +154,24 @@ def get_config(
         window_end = yesterday+'T23:59:59Z'
     window = f"{window_start},{window_end}"
     config['window_start'] = window_start
-    config['params'] = (
+    config['params'] = [
         ("window", window),
-        ("aggregate", aggregate_by),
-        ("includeIdle", "false"),
-        ("idleByNode", "false"),
+        ("includeIdle", include_idle),
+        ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
-        ("format", "json"),
-        ("step", step),  # TODO: make this optional
-        ("accumulate", "true")  # TODO: Make this one a variable
-    )
+        ("format", "json")
+    ]
+
+    # Conditionally append query parameters
+    if step is not None:
+        config['params'].append(("step", step))
+    if aggregate_by is not None:
+        config['params'].append(("aggregate", aggregate_by))
+    if resolution is not None:
+        config['params'].append(("resolution", resolution))
+    if accumulate is not None:
+        config['params'].append(("accumulate", accumulate))
+    config['params'] = tuple(config['params'])
 
     return config
 
@@ -195,7 +229,9 @@ def process_result(result, ignored_alloc_keys, rename_cols, data_types):
             for ignored_key in ignored_alloc_keys:
                 split[alloc_name].pop(ignored_key, None)
     try:
-        frames = [pd.json_normalize(split.values()) for split in result]
+        # TODO: make sep an ENV var with default '.'
+        frames = [pd.json_normalize(split.values(), sep='_')
+                  for split in result]
         processed_data = pd.concat(frames)
         processed_data.rename(columns=rename_cols, inplace=True)
         processed_data = processed_data.astype(data_types)

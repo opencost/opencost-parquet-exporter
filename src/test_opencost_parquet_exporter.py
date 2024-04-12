@@ -30,6 +30,8 @@ class TestGetConfig(unittest.TestCase):
                              '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
             self.assertEqual(config['s3_bucket'], 's3://test-bucket')
             self.assertEqual(config['storage_backend'], 'aws')
+            self.assertEqual(config['params'][1][1], 'false')
+            self.assertEqual(config['params'][2][1], 'false')
 
     def test_get_azure_config_with_env_vars(self):
         """Test get_config returns correct configurations based on environment variables."""
@@ -47,7 +49,9 @@ class TestGetConfig(unittest.TestCase):
                 'OPENCOST_PARQUET_AZURE_CONTAINER_NAME': 'testcontainer',
                 'OPENCOST_PARQUET_AZURE_TENANT': 'testtenant',
                 'OPENCOST_PARQUET_AZURE_APPLICATION_ID': 'testid',
-                'OPENCOST_PARQUET_AZURE_APPLICATION_SECRET': 'testsecret'}, clear=True):
+                'OPENCOST_PARQUET_AZURE_APPLICATION_SECRET': 'testsecret',
+                'OPENCOST_PARQUET_IDLE_BY_NODE': 'true',
+                'OPENCOST_PARQUET_INCLUDE_IDLE': 'true'}, clear=True):
             config = get_config()
 
             self.assertEqual(
@@ -61,6 +65,8 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config['azure_tenant'], 'testtenant')
             self.assertEqual(config['azure_application_id'], 'testid')
             self.assertEqual(config['azure_application_secret'], 'testsecret')
+            self.assertEqual(config['params'][1][1], 'true')
+            self.assertEqual(config['params'][2][1], 'true')
 
     @freeze_time("2024-01-31")
     def test_get_config_defaults_last_day_of_month(self):
