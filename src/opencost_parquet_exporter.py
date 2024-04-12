@@ -155,8 +155,7 @@ def get_config(
     window = f"{window_start},{window_end}"
     config['window_start'] = window_start
     config['params'] = [
-        # ("window", window),
-        ("window", "today"),
+        ("window", window),
         ("includeIdle", include_idle),
         ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
