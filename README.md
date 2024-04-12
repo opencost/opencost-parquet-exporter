@@ -38,7 +38,7 @@ The script supports the following environment variables:
 ## AWS IAM
 
 ## Azure RBAC
-
+The current implementation allows for authentication via [Service Principals](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals?tabs=browser) on the Azure Storage Account. Therefore, to use the Azure storage backend you need an existing service principal with according role assignments. Azure RBAC has built-in roles for Storage Account Blob Storage operations. The [Storage-Blob-Data-Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) allows to write data to a Azure Storage Account container. A less permissivie custom role can be built and is encouraged!
 
 
 # Usage:
