@@ -1,10 +1,11 @@
 """ Test cases for opencost-parquet-exporter."""
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
+import json
 import os
 import requests
 from freezegun import freeze_time
-from opencost_parquet_exporter import get_config, request_data
+from opencost_parquet_exporter import get_config, request_data, load_config_file
 
 
 class TestGetConfig(unittest.TestCase):
@@ -190,6 +191,65 @@ class TestRequestData(unittest.TestCase):
         }
         data = request_data(config)
         self.assertIsNone(data)
+
+
+class TestLoadConfigMaps(unittest.TestCase):
+    """Test cases for load_config_file method"""
+
+    def setUp(self):
+        # Setup a temporary directory and example config data for testing
+        self.test_dir = 'test_configs'
+        os.makedirs(self.test_dir, exist_ok=True)
+        self.valid_json_path = os.path.join(self.test_dir, 'valid_config.json')
+        self.invalid_json_path = os.path.join(
+            self.test_dir, 'invalid_config.json')
+        self.empty_json_path = os.path.join(self.test_dir, 'empty.json')
+
+        # Create a valid JSON file
+        with open(self.valid_json_path, 'w', encoding='utf-8') as f:
+            json.dump({"key": "value"}, f)
+
+        # Create an invalid JSON file
+        with open(self.invalid_json_path, 'w', encoding='utf-8') as f:
+            f.write('{"key": "value",}')
+
+        # Create an empty JSON file
+        with open(self.empty_json_path, 'w', encoding='utf-8') as f:
+            pass
+
+    def tearDown(self):
+        # Remove the directory after tests
+        for file in os.listdir(self.test_dir):
+            os.remove(os.path.join(self.test_dir, file))
+        os.rmdir(self.test_dir)
+
+    def test_successful_load(self):
+        """ Test loading a valid JSON file """
+        result = load_config_file(self.valid_json_path)
+        self.assertEqual(result, {"key": "value"})
+
+    def test_file_not_found(self):
+        """ Test the response when the JSON file does not exist """
+        with self.assertRaises(FileNotFoundError):
+            load_config_file('nonexistent.json')
+
+    def test_permission_error(self):
+        """ Test the response to inadequate file permissions """
+        # Simulate permission error by patching os.open
+        with patch('builtins.open', mock_open()) as mocked_file:
+            mocked_file.side_effect = PermissionError("Permission denied")
+            with self.assertRaises(PermissionError):
+                load_config_file(self.valid_json_path)
+
+    def test_invalid_json_format(self):
+        """ Test how it handles a file with invalid JSON """
+        with self.assertRaises(json.JSONDecodeError):
+            load_config_file(self.invalid_json_path)
+
+    def test_empty_file(self):
+        """ Test the function's response to an empty JSON file """
+        with self.assertRaises(json.JSONDecodeError):
+            load_config_file(self.empty_json_path)
 
 
 if __name__ == '__main__':
