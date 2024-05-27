@@ -14,8 +14,8 @@ The file requirements.txt has all the dependencies specified.
 The script supports the following environment variables:
 * OPENCOST_PARQUET_SVC_HOSTNAME: Hostname of the opencost service. By default it assume the opencost service is on localhost.
 * OPENCOST_PARQUET_SVC_PORT: Port of the opencost service, by default it assume it is 9003
-* OPENCOST_PARQUET_WINDOW_START: Start window for the export, by default it is None, which results in exporting the data for yesterday.
-* OPENCOST_PARQUET_WINDOW_END: End of export window, by default it is None, which results in exporting the data for yesterday.
+* OPENCOST_PARQUET_WINDOW_START: Start window for the export, by default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format. i.e `2024-05-27T00:00:00Z`.
+* OPENCOST_PARQUET_WINDOW_END: End of export window, by default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format. i.e `2024-05-27T00:00:00Z`.
 * OPENCOST_PARQUET_S3_BUCKET: S3 bucket that will be used to store the export. By default this is None, and S3 export is not done. If set to a bucket use s3://bucket-name and make sure there is an AWS Role  with access to the s3 bucket attached to the container that is running the export. This also respect the environment variables AWS_PROFILE, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. see: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
 * OPENCOST_PARQUET_FILE_KEY_PREFIX: This is the prefix used for the export, by default it is '/tmp'. The export is going to be saved inside this prefix, in the following structure: year=window_start.year/month=window_start.month/day=window_start.day , ex: tmp/year=2024/month=1/date=15
 * OPENCOST_PARQUET_AGGREGATE: This is the dimentions used to aggregate the data. by default we use "namespace,pod,container" which is the same dimensions used for the CSV native export.
