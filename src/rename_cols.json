@@ -1,0 +1,14 @@
+{
+    "start": "running_start_time",
+    "end": "running_end_time",
+    "minutes": "running_minutes",
+    "properties.labels.node_type": "label.node_type",
+    "properties.labels.product": "label.product",
+    "properties.labels.project": "label.project",
+    "properties.labels.role": "label.role",
+    "properties.labels.team": "label.team",
+    "properties.namespaceLabels.product": "namespaceLabels.product",
+    "properties.namespaceLabels.project": "namespaceLabels.project",
+    "properties.namespaceLabels.role": "namespaceLabels.role",
+    "properties.namespaceLabels.team": "namespaceLabels.team"
+}

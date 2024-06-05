@@ -20,6 +20,26 @@ The script supports the following environment variables:
 * OPENCOST_PARQUET_FILE_KEY_PREFIX: This is the prefix used for the export, by default it is '/tmp'. The export is going to be saved inside this prefix, in the following structure: year=window_start.year/month=window_start.month/day=window_start.day , ex: tmp/year=2024/month=1/date=15
 * OPENCOST_PARQUET_AGGREGATE: This is the dimentions used to aggregate the data. by default we use "namespace,pod,container" which is the same dimensions used for the CSV native export.
 * OPENCOST_PARQUET_STEP: This is the Step for the export, by default we use 1h steps, which result in 24 steps in a day and make easier to match the exported data to AWS CUR, since cur also export on hourly base.
+* OPENCOST_PARQUET_RESOLUTION: Duration to use as resolution in Prometheus queries. Smaller values (i.e. higher resolutions) will provide better accuracy, but worse performance (i.e. slower query time, higher memory use). Larger values (i.e. lower resolutions) will perform better, but at the expense of lower accuracy for short-running workloads. 
+* OPENCOST_PARQUET_ACCUMULATE: If `"true"`, sum the entire range of time intervals into a single set. Default value is `"false"`. 
+* OPENCOST_PARQUET_INCLUDE_IDLE: Whether to return the calculated __idle__ field for the query. Default is `"false"`.
+* OPENCOST_PARQUET_IDLE_BY_NODE: If `"true"`, idle allocations are created on a per node basis. Which will result in different values when shared and more idle allocations when split. Default is `"false"`.
+* OPENCOST_PARQUET_STORAGE_BACKEND: The storage backend to use. Supports `aws`, `azure`. See below for Azure specific variables.
+* OPENCOST_PARQUET_JSON_SEPARATOR: The OpenCost API returns nested objects. The used [JSON normalization method](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.json_normalize.html) allows for a custom separator. Use this to specify the separator of your choice. 
+
+## Azure Specific Environment Variables
+* OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME: Name of the Azure Storage Account you want to export the data to.
+* OPENCOST_PARQUET_AZURE_CONTAINER_NAME:  The container within the storage account you want to save the data to. The service principal requires write permissions on the container
+* OPENCOST_PARQUET_AZURE_TENANT: You Azure Tenant ID
+* OPENCOST_PARQUET_AZURE_APPLICATION_ID: ClientID of the Service Principal
+* OPENCOST_PARQUET_AZURE_APPLICATION_SECRET: Secret of the Service Principal
+
+# Prerequisites
+## AWS IAM
+
+## Azure RBAC
+The current implementation allows for authentication via [Service Principals](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals?tabs=browser) on the Azure Storage Account. Therefore, to use the Azure storage backend you need an existing service principal with according role assignments. Azure RBAC has built-in roles for Storage Account Blob Storage operations. The [Storage-Blob-Data-Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) allows to write data to a Azure Storage Account container. A less permissivie custom role can be built and is encouraged!
+
 
 # Usage:
 
