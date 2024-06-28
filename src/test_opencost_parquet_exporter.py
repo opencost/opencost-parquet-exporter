@@ -90,6 +90,27 @@ class TestGetConfig(unittest.TestCase):
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
 
+    def test_get_config_with_parquet_prefix_env_var(self):
+      """Test get_config overrides parquet prefix when env var is set."""
+      with patch.dict(os.environ, {
+        'OPENCOST_PARQUET_INCLUDE_IDLE': 'true',
+        'OPENCOST_PARQUET_IDLE_BY_NODE': 'true'}, clear=True):
+        config = get_config()
+        self.assertEqual(config['params'][2][0], 'includeIdle')
+        self.assertEqual(config['params'][2][1], 'true')
+
+        self.assertEqual(config['params'][3][0], 'idleByNode')
+        self.assertEqual(config['params'][3][1], 'true')
+
+    def test_get_config_with_idle_env_vars(self):
+      """Test get_config overrides parquet prefix when env var is set."""
+      with patch.dict(os.environ, {
+        'OPENCOST_PARQUET_FILE_KEY_PREFIX': 'test-prefix/',
+        'OPENCOST_PARQUET_PREFIX': 'my/parquet/prefix',
+        'OPENCOST_PARQUET_STEP': '1m'}, clear=True):
+        config = get_config()
+        self.assertEqual(config['parquet_prefix'], 'my/parquet/prefix')
+
 class TestRequestData(unittest.TestCase):
     """ Test request_data method """
     @patch('opencost_parquet_exporter.requests.get')
