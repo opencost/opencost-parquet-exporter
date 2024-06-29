@@ -18,8 +18,11 @@ def get_config(
         window_end=None,
         s3_bucket=None,
         file_key_prefix=None,
+        parquet_prefix=None,
         aggregate_by=None,
-        step=None):
+        step=None,
+        include_idle=None,
+        idle_by_node=None):
     """
     Get configuration for the parquet exporter based on either provided
     parameters or environment variables.
@@ -48,6 +51,12 @@ def get_config(
     - step (str): Granularity for the data aggregation,
                   defaults to the 'OPENCOST_PARQUET_STEP' environment variable,
                   or '1h' if not set.
+    - include_idle (str): Include idle resources in the data,
+                           defaults to the 'OPENCOST_PARQUET_INCLUDE_IDLE' environment variable,
+                           or 'false' if not set.
+    - idle_by_node (str): Include idle resources by node,
+                          defaults to the 'OPENCOST_PARQUET_IDLE_BY_NODE' environment variable,
+                          or 'false' if not set.
 
     Returns:
     - dict: Configuration dictionary with keys for 'url', 'params', 's3_bucket',
@@ -74,6 +83,10 @@ def get_config(
         aggregate_by = os.environ.get('OPENCOST_PARQUET_AGGREGATE', 'namespace,pod,container')
     if step is None:
         step = os.environ.get('OPENCOST_PARQUET_STEP', '1h')
+    if include_idle is None:
+        include_idle = os.environ.get('OPENCOST_PARQUET_INCLUDE_IDLE', 'false')
+    if idle_by_node is None:
+        idle_by_node = os.environ.get('OPENCOST_PARQUET_IDLE_BY_NODE', 'false')
 
     if s3_bucket is not None:
         config['s3_bucket'] = s3_bucket
@@ -85,12 +98,20 @@ def get_config(
             datetime.now() - timedelta(1), '%Y-%m-%d')
         window_start = yesterday+'T00:00:00Z'
         window_end = yesterday+'T23:59:59Z'
+    if parquet_prefix is None:
+      window = datetime.strptime(window_start, "%Y-%m-%dT%H:%M:%SZ")
+      parquet_prefix = os.environ.get(
+        'OPENCOST_PARQUET_PREFIX',
+        f"{file_key_prefix}/year={window.year}/month={window.month}/day={window.day}"
+      )
+
+    config['parquet_prefix'] = parquet_prefix
     window = f"{window_start},{window_end}"
     config['params'] = (
         ("window", window),
         ("aggregate", aggregate_by),
-        ("includeIdle", "false"),
-        ("idleByNode", "false"),
+        ("includeIdle", include_idle),
+        ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
         ("format", "json"),
         ("step", step)
@@ -244,9 +265,7 @@ def save_result(processed_result, config):
     - uri : String with the path where the data was saved.
     """
     file_name = 'k8s_opencost.parquet'
-    window = datetime.strptime(config['window_start'], "%Y-%m-%dT%H:%M:%SZ")
-    parquet_prefix = f"{config['file_key_prefix']}/year={window.year}"\
-                     f"/month={window.month}/day={window.day}"
+    parquet_prefix = config['parquet_prefix']
     try:
         if config.get('s3_bucket', None):
             uri = f"s3://{config['s3_bucket']}/{parquet_prefix}/{file_name}"
