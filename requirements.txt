@@ -8,4 +8,4 @@ six==1.16.0
 tzdata==2023.4
 pyarrow==14.0.1
 azure-storage-blob==12.19.1
-azure-identity==1.15.0
+azure-identity==1.16.1
