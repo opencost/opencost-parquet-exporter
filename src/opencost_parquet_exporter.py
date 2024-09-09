@@ -285,13 +285,13 @@ def main():
     print("Starting run")
     print("Load data types")
     data_types = load_config_file(
-        file_path='./src/data_types.json')  # TODO: Make path ENV var
+        file_path=f'{os.path.dirname(os.path.abspath(__file__))}/data_types.json')
     print("Load renaming coloumns")
     rename_cols = load_config_file(
-        file_path='./src/rename_cols.json')  # TODO: Make path ENV var
+        file_path=f'{os.path.dirname(os.path.abspath(__file__))}/rename_cols.json')
     print("Load allocation keys to ignore")
     ignore_alloc_keys = load_config_file(
-        file_path='./src/ignore_alloc_keys.json')  # TODO: Make path ENV var
+        file_path=f'{os.path.dirname(os.path.abspath(__file__))}/ignore_alloc_keys.json')
 
     print("Build config")
     config = get_config()
