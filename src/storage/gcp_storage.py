@@ -2,10 +2,11 @@
 This module provides an implementation of the BaseStorage class for Google Cloud Storage.
 """
 
+from io import BytesIO
 import logging
 from google.cloud import storage
 from google.oauth2 import service_account
-from io import BytesIO
+from google.api_core import exceptions as gcp_exceptions
 import pandas as pd
 from .base_storage import BaseStorage
 
@@ -72,7 +73,17 @@ class GCPStorage(BaseStorage):
             blob.upload_from_file(
                 parquet_file, content_type='application/octet-stream')
             return blob.public_url
-        except Exception as e:
-            logger.error(e)
+        except gcp_exceptions.BadRequest as e:
+            logger.error("Bad Request Error: %s", e)
+        except gcp_exceptions.Forbidden as e:
+            logger.error("Forbidden Error: %s", e)
+        except gcp_exceptions.NotFound as e:
+            logger.error("Not Found Error: %s", e)
+        except gcp_exceptions.TooManyRequests as e:
+            logger.error("Too Many Requests Error: %s", e)
+        except gcp_exceptions.InternalServerError as e:
+            logger.error("Internal Server Error: %s", e)
+        except gcp_exceptions.GoogleAPIError as e:
+            logger.error("Google API Error: %s", e)
 
         return None
