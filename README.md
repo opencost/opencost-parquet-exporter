@@ -3,43 +3,49 @@ Export OpenCost data in parquet format
 
 This script was created to export data from opencost in PARQUET format.
 
-It supports exporting the data to S3 and local directory.
+It supports exporting the data to S3, Azure Blob Storage, GCP Cloud Storage, and local directory.
 
 # Dependencies
-This script depends on boto3, pandas, numpy and python-dateutil.
+This script depends on boto3, pandas, numpy, python-dateutil, azure-identity, azure-storage-blob, and google-cloud-storage.
 
 The file requirements.txt has all the dependencies specified.
 
 # Configuration:
 The script supports the following environment variables:
-* OPENCOST_PARQUET_SVC_HOSTNAME: Hostname of the opencost service. By default it assume the opencost service is on localhost.
-* OPENCOST_PARQUET_SVC_PORT: Port of the opencost service, by default it assume it is 9003
-* OPENCOST_PARQUET_WINDOW_START: Start window for the export, by default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format. i.e `2024-05-27T00:00:00Z`.
-* OPENCOST_PARQUET_WINDOW_END: End of export window, by default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format. i.e `2024-05-27T00:00:00Z`.
-* OPENCOST_PARQUET_S3_BUCKET: S3 bucket that will be used to store the export. By default this is None, and S3 export is not done. If set to a bucket use s3://bucket-name and make sure there is an AWS Role  with access to the s3 bucket attached to the container that is running the export. This also respect the environment variables AWS_PROFILE, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. see: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-* OPENCOST_PARQUET_FILE_KEY_PREFIX: This is the prefix used for the export, by default it is '/tmp'. The export is going to be saved inside this prefix, in the following structure: year=window_start.year/month=window_start.month/day=window_start.day , ex: tmp/year=2024/month=1/date=15
-* OPENCOST_PARQUET_AGGREGATE: This is the dimentions used to aggregate the data. by default we use "namespace,pod,container" which is the same dimensions used for the CSV native export.
-* OPENCOST_PARQUET_STEP: This is the Step for the export, by default we use 1h steps, which result in 24 steps in a day and make easier to match the exported data to AWS CUR, since cur also export on hourly base.
-* OPENCOST_PARQUET_RESOLUTION: Duration to use as resolution in Prometheus queries. Smaller values (i.e. higher resolutions) will provide better accuracy, but worse performance (i.e. slower query time, higher memory use). Larger values (i.e. lower resolutions) will perform better, but at the expense of lower accuracy for short-running workloads. 
-* OPENCOST_PARQUET_ACCUMULATE: If `"true"`, sum the entire range of time intervals into a single set. Default value is `"false"`. 
+* OPENCOST_PARQUET_SVC_HOSTNAME: Hostname of the opencost service. By default, it assumes the opencost service is on localhost.
+* OPENCOST_PARQUET_SVC_PORT: Port of the opencost service, by default it assumes it is 9003.
+* OPENCOST_PARQUET_WINDOW_START: Start window for the export. By default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format, e.g., `2024-05-27T00:00:00Z`.
+* OPENCOST_PARQUET_WINDOW_END: End of the export window. By default it is None, which results in exporting the data for yesterday. Date needs to be set in RFC3339 format, e.g., `2024-05-27T23:59:59Z`.
+* OPENCOST_PARQUET_S3_BUCKET: S3 bucket that will be used to store the export. By default this is None, and S3 export is not done. If set to a bucket, use `s3://bucket-name` and make sure there is an AWS Role with access to the S3 bucket attached to the container running the export. This also respects the environment variables AWS_PROFILE, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. See: [Boto3 Documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html).
+* OPENCOST_PARQUET_FILE_KEY_PREFIX: This is the prefix used for the export. By default it is `/tmp`. The export will be saved inside this prefix in the following structure: `year=window_start.year/month=window_start.month/day=window_start.day`, e.g., `tmp/year=2024/month=1/day=15`.
+* OPENCOST_PARQUET_AGGREGATE: Dimensions used to aggregate the data. By default, "namespace,pod,container" which is the same dimensions used for the CSV native export.
+* OPENCOST_PARQUET_STEP: Step size for the export. By default, we use 1h steps, which results in 24 steps in a day and makes it easier to match the exported data to AWS CUR since CUR also exports on an hourly basis.
+* OPENCOST_PARQUET_RESOLUTION: Duration to use as resolution in Prometheus queries. Smaller values (i.e., higher resolutions) will provide better accuracy, but worse performance (i.e., slower query time, higher memory use). Larger values (i.e., lower resolutions) will perform better but at the expense of lower accuracy for short-running workloads.
+* OPENCOST_PARQUET_ACCUMULATE: If `"true"`, sum the entire range of time intervals into a single set. Default value is `"false"`.
 * OPENCOST_PARQUET_INCLUDE_IDLE: Whether to return the calculated __idle__ field for the query. Default is `"false"`.
-* OPENCOST_PARQUET_IDLE_BY_NODE: If `"true"`, idle allocations are created on a per node basis. Which will result in different values when shared and more idle allocations when split. Default is `"false"`.
-* OPENCOST_PARQUET_STORAGE_BACKEND: The storage backend to use. Supports `aws`, `azure`. See below for Azure specific variables.
-* OPENCOST_PARQUET_JSON_SEPARATOR: The OpenCost API returns nested objects. The used [JSON normalization method](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.json_normalize.html) allows for a custom separator. Use this to specify the separator of your choice. 
+* OPENCOST_PARQUET_IDLE_BY_NODE: If `"true"`, idle allocations are created on a per-node basis, which will result in different values when shared and more idle allocations when split. Default is `"false"`.
+* OPENCOST_PARQUET_STORAGE_BACKEND: The storage backend to use. Supports `aws`, `azure`, `gcp`. See below for Azure and GCP-specific variables.
+* OPENCOST_PARQUET_JSON_SEPARATOR: The OpenCost API returns nested objects. The used [JSON normalization method](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.json_normalize.html) allows for a custom separator. Use this to specify the separator of your choice.
 
 ## Azure Specific Environment Variables
 * OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME: Name of the Azure Storage Account you want to export the data to.
-* OPENCOST_PARQUET_AZURE_CONTAINER_NAME:  The container within the storage account you want to save the data to. The service principal requires write permissions on the container
-* OPENCOST_PARQUET_AZURE_TENANT: You Azure Tenant ID
-* OPENCOST_PARQUET_AZURE_APPLICATION_ID: ClientID of the Service Principal
-* OPENCOST_PARQUET_AZURE_APPLICATION_SECRET: Secret of the Service Principal
+* OPENCOST_PARQUET_AZURE_CONTAINER_NAME: The container within the storage account you want to save the data to. The service principal requires write permissions on the container.
+* OPENCOST_PARQUET_AZURE_TENANT: Your Azure Tenant ID.
+* OPENCOST_PARQUET_AZURE_APPLICATION_ID: Client ID of the Service Principal.
+* OPENCOST_PARQUET_AZURE_APPLICATION_SECRET: Secret of the Service Principal.
+
+## GCP Specific Environment Variables
+* OPENCOST_PARQUET_GCP_BUCKET_NAME: Name of the GCP bucket you want to export the data to.
+* OPENCOST_PARQUET_GCP_CREDENTIALS_JSON: JSON-formatted string of your GCP credentials (optional, uses `GOOGLE_APPLICATION_CREDENTIALS` if not set).
 
 # Prerequisites
 ## AWS IAM
 
 ## Azure RBAC
-The current implementation allows for authentication via [Service Principals](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals?tabs=browser) on the Azure Storage Account. Therefore, to use the Azure storage backend you need an existing service principal with according role assignments. Azure RBAC has built-in roles for Storage Account Blob Storage operations. The [Storage-Blob-Data-Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) allows to write data to a Azure Storage Account container. A less permissivie custom role can be built and is encouraged!
+The current implementation allows for authentication via [Service Principals](https://learn.microsoft.com/en-us/azure/active-directory/develop/app-objects-and-service-principals) on the Azure Storage Account. Therefore, to use the Azure storage backend, you need an existing service principal with the appropriate role assignments. Azure RBAC has built-in roles for Storage Account Blob Storage operations. The [Storage Blob Data Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) allows writing data to an Azure Storage Account container. A less permissive custom role can be built and is encouraged!
 
+## GCP IAM
+The current implementation allows for authentication using service account keys or Workload Identity. Ensure that the service account has the `Storage Object Creator` role or equivalent permissions to write data to the GCP bucket.
 
 # Usage:
 

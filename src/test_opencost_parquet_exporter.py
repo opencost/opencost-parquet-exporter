@@ -69,6 +69,36 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config['params'][1][1], 'true')
             self.assertEqual(config['params'][2][1], 'true')
 
+    def test_get_gcp_config_with_env_vars(self):
+        """Test get_config returns correct configurations based on environment variables."""
+        with patch.dict(os.environ, {
+            'OPENCOST_PARQUET_SVC_HOSTNAME': 'testhost',
+            'OPENCOST_PARQUET_SVC_PORT': '8080',
+            'OPENCOST_PARQUET_WINDOW_START': '2020-01-01T00:00:00Z',
+            'OPENCOST_PARQUET_WINDOW_END': '2020-01-01T23:59:59Z',
+            'OPENCOST_PARQUET_S3_BUCKET': 's3://test-bucket',
+            'OPENCOST_PARQUET_FILE_KEY_PREFIX': 'test-prefix/',
+            'OPENCOST_PARQUET_AGGREGATE': 'namespace',
+            'OPENCOST_PARQUET_STEP': '1m',
+            'OPENCOST_PARQUET_STORAGE_BACKEND': 'gcp',
+            'OPENCOST_PARQUET_GCP_BUCKET_NAME': 'testbucket',
+            'OPENCOST_PARQUET_GCP_CREDENTIALS_JSON': '{"type": "service_account"}',
+            'OPENCOST_PARQUET_IDLE_BY_NODE': 'true',
+                'OPENCOST_PARQUET_INCLUDE_IDLE': 'true'}, clear=True):
+            config = get_config()
+
+            self.assertEqual(
+                config['url'], 'http://testhost:8080/allocation/compute')
+            self.assertEqual(config['params'][0][1],
+                             '2020-01-01T00:00:00Z,2020-01-01T23:59:59Z')
+            self.assertEqual(config['storage_backend'], 'gcp')
+            self.assertEqual(
+                config['gcp_bucket_name'], 'testbucket')
+            self.assertEqual(config['gcp_credentials'], {
+                             'type': 'service_account'})
+            self.assertEqual(config['params'][1][1], 'true')
+            self.assertEqual(config['params'][2][1], 'true')
+
     @freeze_time("2024-01-31")
     def test_get_config_defaults_last_day_of_month(self):
         """Test get_config returns correct defaults when no env vars are set."""
