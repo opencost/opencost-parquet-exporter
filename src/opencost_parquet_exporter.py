@@ -145,6 +145,12 @@ def get_config(
             'azure_application_id': os.environ.get('OPENCOST_PARQUET_AZURE_APPLICATION_ID'),
             'azure_application_secret': os.environ.get('OPENCOST_PARQUET_AZURE_APPLICATION_SECRET'),
         })
+    if config['storage_backend'] == 'gcp':
+        config.update({
+            # pylint: disable=C0301
+            'gcp_bucket_name': os.environ.get('OPENCOST_PARQUET_GCP_BUCKET_NAME'),
+            'gcp_credentials': json.loads(os.environ.get('OPENCOST_PARQUET_GCP_CREDENTIALS_JSON', '{}')),
+        })
 
     # If window is not specified assume we want yesterday data.
     if window_start is None or window_end is None:
