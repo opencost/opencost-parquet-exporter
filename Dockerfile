@@ -1,20 +1,65 @@
+# Stage 1: Builder
 FROM python:3.11-bookworm AS builder
 
-RUN apt-get update && apt-get -y upgrade && apt-get install -y cmake && apt-get -y clean && mkdir  -p /app/ && python3 -m venv /app/.venv 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
-COPY requirements.txt /app/
-RUN cd app && source .venv/bin/activate && pip3 install -r requirements.txt 
+# Set environment variables for paths to avoid repetition
+ENV APP_DIR=/app \
+    VENV_DIR=/app/.venv
 
+# Update system and install required packages in a single RUN command to reduce layers
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
+    cmake \
+    build-essential \
+    libatlas-base-dev \
+    gfortran \
+    libssl-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libcurl4-openssl-dev \
+    libboost-all-dev \
+    libprotobuf-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p $APP_DIR \
+    && python3 -m venv $VENV_DIR
+
+# Copy the requirements file first to leverage Docker caching in case dependencies don't change
+COPY requirements.txt $APP_DIR/
+
+# Activate virtual environment and install Python dependencies
+# Use the full path for activation
+RUN /bin/bash -c "source $VENV_DIR/bin/activate && pip3 install --no-cache-dir -r $APP_DIR/requirements.txt"
+
+# Stage 2: Runtime Image
 FROM python:3.11-bookworm AS runtime-image
-RUN apt-get update && apt-get -y upgrade && apt-get -y clean
-RUN useradd --create-home --shell /bin/sh  --uid 8000 opencost
-COPY --from=builder /app /app 
-COPY src/opencost_parquet_exporter.py /app/opencost_parquet_exporter.py
-COPY src/data_types.json /app/data_types.json
-COPY src/rename_cols.json /app/rename_cols.json
-COPY src/ignore_alloc_keys.json /app/ignore_alloc_keys.json
-RUN chmod 755 /app/opencost_parquet_exporter.py && chown -R opencost /app/  
+
+# Set environment variables for paths
+ENV APP_DIR=/app \
+    VENV_DIR=/app/.venv \
+    PATH="$VENV_DIR/bin:$PATH"
+
+# Update and clean up in a single step to minimize image size
+RUN apt-get update && apt-get -y upgrade \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security
+RUN useradd --create-home --shell /bin/sh --uid 8000 opencost
+
+# Copy application files from the builder stage
+COPY --from=builder $APP_DIR $APP_DIR
+
+# Copy all files from /src to /app
+COPY src/ $APP_DIR/
+
+# Set correct permissions for the application files
+RUN chmod 755 $APP_DIR/opencost_parquet_exporter.py \
+    && chown -R opencost $APP_DIR
+
+# Switch to the non-root user
 USER opencost
-ENV PATH="/app/.venv/bin:$PATH"
-CMD ["/app/opencost_parquet_exporter.py"]
+
+# Default entrypoint and command
 ENTRYPOINT ["/app/.venv/bin/python3"]
+CMD ["/app/opencost_parquet_exporter.py"]
