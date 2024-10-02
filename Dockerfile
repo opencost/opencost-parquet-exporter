@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.11-bookworm AS builder
+FROM python:3.12-bookworm AS builder
 
 # Set environment variables for paths to avoid repetition
 ENV APP_DIR=/app \
@@ -32,7 +32,7 @@ COPY requirements.txt $APP_DIR/
 RUN /bin/bash -c "source $VENV_DIR/bin/activate && pip3 install --no-cache-dir -r $APP_DIR/requirements.txt"
 
 # Stage 2: Runtime Image
-FROM python:3.11-bookworm AS runtime-image
+FROM python:3.12-bookworm AS runtime-image
 
 # Set environment variables for paths
 ENV APP_DIR=/app \
