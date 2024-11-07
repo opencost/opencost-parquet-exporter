@@ -13,8 +13,9 @@ COPY src/opencost_parquet_exporter.py /app/opencost_parquet_exporter.py
 COPY src/data_types.json /app/data_types.json
 COPY src/rename_cols.json /app/rename_cols.json
 COPY src/ignore_alloc_keys.json /app/ignore_alloc_keys.json
+COPY src/storage_factory.py /app/storage_factory.py
+COPY src/storage /app/storage
 RUN chmod 755 /app/opencost_parquet_exporter.py && chown -R opencost /app/  
 USER opencost
 ENV PATH="/app/.venv/bin:$PATH"
-CMD ["/app/opencost_parquet_exporter.py"]
-ENTRYPOINT ["/app/.venv/bin/python3"]
+ENTRYPOINT ["/app/.venv/bin/python3", "/app/opencost_parquet_exporter.py"]

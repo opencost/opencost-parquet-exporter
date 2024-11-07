@@ -35,6 +35,8 @@ spec:
               value: opencost.opencost.svc.cluster.local.
             - name: OPENCOST_PARQUET_SVC_PORT
               value: "9003"
+            - name: OPENCOST_PARQUET_STORAGE_BACKEND
+              value: "[aws, azure]"
             image: ghcr.io/opencost/opencost-parquet-exporter:latest
             imagePullPolicy: Always
             name: export-opencost
