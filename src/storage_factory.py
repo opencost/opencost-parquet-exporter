@@ -26,7 +26,7 @@ def get_storage(storage_backend):
     """
     if storage_backend == 'azure':
         return AzureStorage()
-    if storage_backend == 's3':
+    if storage_backend in ['s3', 'aws']:
         return S3Storage()
     if storage_backend == 'gcp':
         return GCPStorage()
