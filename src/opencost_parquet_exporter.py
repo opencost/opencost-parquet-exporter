@@ -37,6 +37,7 @@ def get_config(
         window_end=None,
         s3_bucket=None,
         file_key_prefix=None,
+        parquet_prefix=None,
         aggregate_by=None,
         step=None,
         resolution=None,
@@ -158,10 +159,19 @@ def get_config(
             datetime.now() - timedelta(1), '%Y-%m-%d')
         window_start = yesterday+'T00:00:00Z'
         window_end = yesterday+'T23:59:59Z'
+    if parquet_prefix is None:
+      window = datetime.strptime(window_start, "%Y-%m-%dT%H:%M:%SZ")
+      parquet_prefix = os.environ.get(
+        'OPENCOST_PARQUET_PREFIX',
+        f"{file_key_prefix}/year={window.year}/month={window.month}/day={window.day}"
+      )
+
+    config['parquet_prefix'] = parquet_prefix
     window = f"{window_start},{window_end}"
     config['window_start'] = window_start
     config['params'] = [
         ("window", window),
+        ("aggregate", aggregate_by),
         ("includeIdle", include_idle),
         ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
@@ -284,7 +294,6 @@ def save_result(processed_result, config):
         sys.exit(1)
 
 # pylint: disable=C0116
-
 
 def main():
     # TODO: Error handling when load fails

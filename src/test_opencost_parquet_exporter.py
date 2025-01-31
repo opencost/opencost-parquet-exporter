@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch, MagicMock, mock_open
 import json
 import os
+from datetime import datetime
 import requests
 from freezegun import freeze_time
 from opencost_parquet_exporter import get_config, request_data, load_config_file
@@ -169,6 +170,38 @@ class TestGetConfig(unittest.TestCase):
             self.assertNotIn('s3_bucket', config)
             self.assertEqual(config['params'][0][1], window)
 
+    def test_get_config_with_idle_env_vars(self):
+      """Test get_config overrides parquet prefix when env var is set."""
+      with patch.dict(os.environ, {
+        'OPENCOST_PARQUET_INCLUDE_IDLE': 'true',
+        'OPENCOST_PARQUET_IDLE_BY_NODE': 'true'}, clear=True):
+        config = get_config()
+        self.assertEqual(config['params'][2][0], 'includeIdle')
+        self.assertEqual(config['params'][2][1], 'true')
+
+        self.assertEqual(config['params'][3][0], 'idleByNode')
+        self.assertEqual(config['params'][3][1], 'true')
+
+    @freeze_time('2024-06-29')
+    def test_get_config_with_parquet_prefix_env_var(self):
+
+      yesterday = '2024-06-28'
+      window_start = yesterday+'T01:00:00Z'
+      window = datetime.strptime(window_start, "%Y-%m-%dT%H:%M:%SZ")
+
+      """Test get_config overrides parquet prefix when env var is set."""
+      with patch.dict(os.environ, {
+        'OPENCOST_PARQUET_FILE_KEY_PREFIX': 'test-prefix/',
+        'OPENCOST_PARQUET_PREFIX': f"year={window.year}/month={window.month}/day={window.day}/hour={window.hour}",
+        'OPENCOST_PARQUET_STEP': '1m'}, clear=True):
+        config = get_config()
+        self.assertEqual(config['parquet_prefix'], 'year=2024/month=6/day=28/hour=1')
+
+    @freeze_time('2024-06-29')
+    def test_get_config_with_default_parquet_prefix_env_var(self):
+      """Test get_config with default parquet prefix when env var is not set."""
+      config = get_config()
+      self.assertEqual(config['parquet_prefix'], '/tmp//year=2024/month=6/day=28')
 
 class TestRequestData(unittest.TestCase):
     """ Test request_data method """
