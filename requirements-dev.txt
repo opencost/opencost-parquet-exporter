@@ -1,14 +1,4 @@
-numpy==1.26.3
-pandas==2.2.3
-boto3==1.35.16
-requests==2.32.0
-python-dateutil==2.8.2
-pytz==2023.3.post1
-six==1.16.0
-tzdata==2023.4
-pyarrow==14.0.1
-azure-storage-blob==12.19.1
-azure-identity==1.16.1
+-r requirements.txt
 # The dependencies bellow are only used for development.
 freezegun==1.4.0
 pylint==3.0.3

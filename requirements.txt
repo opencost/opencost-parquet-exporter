@@ -9,3 +9,10 @@ tzdata==2023.4
 pyarrow==14.0.1
 azure-storage-blob==12.19.1
 azure-identity==1.16.1
+google-api-core==2.19.2
+google-auth==2.34.0
+google-cloud-core==2.4.1
+google-cloud-storage==2.18.2
+google-crc32c==1.6.0
+google-resumable-media==2.7.2
+googleapis-common-protos==1.65.0
