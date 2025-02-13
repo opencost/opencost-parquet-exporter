@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-cronjob
+spec:
+  schedule: "{{ .Values.opencostParquetExporter.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: {{ .Values.opencostParquetExporter.restartPolicy }}
+          containers:
+            - name: my-cronjob
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: IfNotPresent
+              command: ["/app/.venv/bin/python3", "/app/opencost_parquet_exporter.py"]
