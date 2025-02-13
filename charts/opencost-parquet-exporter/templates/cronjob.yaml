@@ -8,9 +8,11 @@ spec:
     spec:
       template:
         spec:
+          serviceAccountName: {{ .Values.serviceAccount.name }}
           restartPolicy: {{ .Values.opencostParquetExporter.restartPolicy }}
           containers:
             - name: my-cronjob
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: IfNotPresent
               command: ["/app/.venv/bin/python3", "/app/opencost_parquet_exporter.py"]
+          imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 4 }}
