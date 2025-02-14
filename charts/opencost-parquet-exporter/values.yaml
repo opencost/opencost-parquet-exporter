@@ -17,6 +17,15 @@ opencostParquetExporter:
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 5
   timeZone: Europe/Berlin
+  env:
+    awsRegion: "eu-west-1"
+    kubeCluster: "YOUR_CLUSTER_NAME_CHANGE_ME"
+    fileKeyPrefix: "cluster=$(KUBE_CLUSTER)"
+    s3Bucket: "YOUR_S3_BUCKET_NAME_CHANGE_ME"
+    s3Region: "YOUR_S3_BUCKET_REGION_NAME_CHANGE_ME"
+    svcHostname: "opencost.opencost.svc.cluster.local."
+    svcPort: "9003"
+    storageBackend: "aws"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []

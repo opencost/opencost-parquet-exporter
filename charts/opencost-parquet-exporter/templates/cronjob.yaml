@@ -19,6 +19,9 @@ spec:
               image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               command: ["/app/.venv/bin/python3", "/app/opencost_parquet_exporter.py"]
+              envFrom:
+                - configMapRef:
+                    name: {{ .Release.Name }}-config
           {{- with .Values.imagePullSecrets }}
           imagePullSecrets:
             {{- toYaml . | nindent 12 }}

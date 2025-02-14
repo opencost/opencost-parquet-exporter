@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  AWS_REGION: {{ .Values.opencostParquetExporter.env.awsRegion | quote }}
+  KUBE_CLUSTER: {{ .Values.opencostParquetExporter.env.kubeCluster | quote }}
+  OPENCOST_PARQUET_FILE_KEY_PREFIX: {{ .Values.opencostParquetExporter.env.fileKeyPrefix | quote }}
+  OPENCOST_PARQUET_S3_BUCKET: {{ .Values.opencostParquetExporter.env.s3Bucket | quote }}
+  OPENCOST_PARQUET_S3_REGION: {{ .Values.opencostParquetExporter.env.s3Region | quote }}
+  OPENCOST_PARQUET_SVC_HOSTNAME: {{ .Values.opencostParquetExporter.env.svcHostname | quote }}
+  OPENCOST_PARQUET_SVC_PORT: {{ .Values.opencostParquetExporter.env.svcPort | quote }}
+  OPENCOST_PARQUET_STORAGE_BACKEND: {{ .Values.opencostParquetExporter.env.storageBackend | quote }} 
