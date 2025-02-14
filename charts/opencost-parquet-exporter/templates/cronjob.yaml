@@ -3,7 +3,11 @@ kind: CronJob
 metadata:
   name: {{ .Release.Name }}-cronjob
 spec:
-  schedule: "{{ .Values.opencostParquetExporter.schedule }}"
+  schedule: {{ .Values.opencostParquetExporter.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.opencostParquetExporter.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.opencostParquetExporter.failedJobsHistoryLimit }}
+  concurrencyPolicy: Forbid
+  timeZone: {{ .Values.opencostParquetExporter.timeZone }}
   jobTemplate:
     spec:
       template:
@@ -11,8 +15,11 @@ spec:
           serviceAccountName: {{ .Values.serviceAccount.name }}
           restartPolicy: {{ .Values.opencostParquetExporter.restartPolicy }}
           containers:
-            - name: my-cronjob
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-              imagePullPolicy: IfNotPresent
+            - name: {{ .Chart.Name }}
+              image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
               command: ["/app/.venv/bin/python3", "/app/opencost_parquet_exporter.py"]
-          imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 4 }}
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

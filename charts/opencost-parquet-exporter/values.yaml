@@ -2,20 +2,21 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 1
-
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: ghcr.io/opencost/opencost-parquet-exporter
+  registry: ghcr.io
+  repository: opencost/opencost-parquet-exporter
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "v0.2.1"
 
 opencostParquetExporter:
-  schedule: "0 * * * *" # Runs every hour
+  schedule: "0 5 * * *" # At 05:00.
   restartPolicy: Never # Change to "OnFailure" if you want retries
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  timeZone: Europe/Berlin
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -31,10 +32,11 @@ serviceAccount:
   automount: true
   # Annotations to add to the service account
   annotations:
-    eks.amazonaws.com/role-arn: ""
+  #  pass the role to read and write to s3 as a annotation
+  #  eks.amazonaws.com/role-arn: ""
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: "opencostParquetExporter"
+  name: "opencost-parquet-exporter"
 
 # This is for setting Kubernetes Annotations to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
