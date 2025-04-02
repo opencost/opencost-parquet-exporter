@@ -6,6 +6,7 @@ COPY requirements.txt /app/
 RUN cd app && source .venv/bin/activate && pip3 install -r requirements.txt 
 
 FROM python:3.11-bookworm AS runtime-image
+ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get -y upgrade && apt-get -y clean
 RUN useradd --create-home --shell /bin/sh  --uid 8000 opencost
 COPY --from=builder /app /app 
