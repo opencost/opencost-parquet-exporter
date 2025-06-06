@@ -23,6 +23,7 @@ The script supports the following environment variables:
 * OPENCOST_PARQUET_RESOLUTION: Duration to use as resolution in Prometheus queries. Smaller values (i.e., higher resolutions) will provide better accuracy, but worse performance (i.e., slower query time, higher memory use). Larger values (i.e., lower resolutions) will perform better but at the expense of lower accuracy for short-running workloads.
 * OPENCOST_PARQUET_ACCUMULATE: If `"true"`, sum the entire range of time intervals into a single set. Default value is `"false"`.
 * OPENCOST_PARQUET_INCLUDE_IDLE: Whether to return the calculated __idle__ field for the query. Default is `"false"`.
+* OPENCOST_PARQUET_SHARE_IDLE: Whether to distribute idle costs across all allocations proportionally. Default is `"false"`.
 * OPENCOST_PARQUET_IDLE_BY_NODE: If `"true"`, idle allocations are created on a per-node basis, which will result in different values when shared and more idle allocations when split. Default is `"false"`.
 * OPENCOST_PARQUET_STORAGE_BACKEND: The storage backend to use. Supports `aws`, `azure`, `gcp`. See below for Azure and GCP-specific variables.
 * OPENCOST_PARQUET_JSON_SEPARATOR: The OpenCost API returns nested objects. The used [JSON normalization method](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.json_normalize.html) allows for a custom separator. Use this to specify the separator of your choice.

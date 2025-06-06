@@ -130,7 +130,7 @@ def get_config(
     if include_idle is None:
         include_idle = os.environ.get('OPENCOST_PARQUET_INCLUDE_IDLE', 'false')
     if share_idle is None:
-        share_idle = os.environ.get('OPENCOST_PARQUET_SHARE_IDLE', 'true')
+        share_idle = os.environ.get('OPENCOST_PARQUET_SHARE_IDLE', 'false')
     if storage_backend is None:
         storage_backend = os.environ.get(
             'OPENCOST_PARQUET_STORAGE_BACKEND', 'aws')  # For backward compatibility
