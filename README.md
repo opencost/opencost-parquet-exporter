@@ -30,9 +30,11 @@ The script supports the following environment variables:
 ## Azure Specific Environment Variables
 * OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME: Name of the Azure Storage Account you want to export the data to.
 * OPENCOST_PARQUET_AZURE_CONTAINER_NAME: The container within the storage account you want to save the data to. The service principal requires write permissions on the container.
-* OPENCOST_PARQUET_AZURE_TENANT: Your Azure Tenant ID.
-* OPENCOST_PARQUET_AZURE_APPLICATION_ID: Client ID of the Service Principal.
-* OPENCOST_PARQUET_AZURE_APPLICATION_SECRET: Secret of the Service Principal.
+* OPENCOST_PARQUET_AZURE_TENANT: Your Azure Tenant ID. When omitted the exporter falls back to the `AZURE_TENANT_ID` environment variable provided by Azure AD Workload Identity.
+* OPENCOST_PARQUET_AZURE_APPLICATION_ID: Client ID of the Service Principal. When omitted the exporter falls back to the `AZURE_CLIENT_ID` environment variable provided by Azure AD Workload Identity.
+* OPENCOST_PARQUET_AZURE_APPLICATION_SECRET: Secret of the Service Principal. Required when using client-secret authentication.
+* OPENCOST_PARQUET_AZURE_FEDERATED_TOKEN_FILE: Path to the federated token file for workload identity authentication. When omitted the exporter falls back to the `AZURE_FEDERATED_TOKEN_FILE` environment variable provided by Azure AD Workload Identity.
+* OPENCOST_PARQUET_AZURE_AUTH_MODE: Optional. Controls which Azure credential to use. Supported values are `auto` (default), `client-secret`, and `workload-identity`.
 
 ## GCP Specific Environment Variables
 * OPENCOST_PARQUET_GCP_BUCKET_NAME: Name of the GCP bucket you want to export the data to.
@@ -42,7 +44,12 @@ The script supports the following environment variables:
 ## AWS IAM
 
 ## Azure RBAC
-The current implementation allows for authentication via [Service Principals](https://learn.microsoft.com/en-us/azure/active-directory/develop/app-objects-and-service-principals) on the Azure Storage Account. Therefore, to use the Azure storage backend, you need an existing service principal with the appropriate role assignments. Azure RBAC has built-in roles for Storage Account Blob Storage operations. The [Storage Blob Data Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) allows writing data to an Azure Storage Account container. A less permissive custom role can be built and is encouraged!
+The exporter supports two authentication flows:
+
+1. **Client-secret (existing behaviour):** Provide `OPENCOST_PARQUET_AZURE_TENANT`, `OPENCOST_PARQUET_AZURE_APPLICATION_ID`, and `OPENCOST_PARQUET_AZURE_APPLICATION_SECRET`. This typically maps to a [Service Principal](https://learn.microsoft.com/en-us/azure/active-directory/develop/app-objects-and-service-principals) with access to the storage account.
+2. **Azure AD Workload Identity / Managed Identity:** Set `OPENCOST_PARQUET_AZURE_AUTH_MODE=workload-identity` (or leave it as `auto` without specifying a secret) and rely on the Kubernetes workload identity webhook to inject `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_FEDERATED_TOKEN_FILE` from the annotated service account used. No client secret is required.
+
+Regardless of the chosen method, ensure the identity has write permissions on the storage account. The built-in [Storage Blob Data Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-data-contributor) role is sufficient, though a more restricted custom role is recommended where possible.
 
 ## GCP IAM
 The current implementation allows for authentication using service account keys or Workload Identity. Ensure that the service account has the `Storage Object Creator` role or equivalent permissions to write data to the GCP bucket.

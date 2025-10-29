@@ -4,8 +4,10 @@ from unittest.mock import patch, MagicMock, mock_open
 import json
 import os
 import requests
+from azure.identity import CredentialUnavailableError
 from freezegun import freeze_time
 from opencost_parquet_exporter import get_config, request_data, load_config_file
+from storage.azure_storage import AzureStorage
 
 
 class TestGetConfig(unittest.TestCase):
@@ -66,8 +68,49 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config['azure_tenant'], 'testtenant')
             self.assertEqual(config['azure_application_id'], 'testid')
             self.assertEqual(config['azure_application_secret'], 'testsecret')
+            self.assertEqual(config['azure_auth_mode'], 'auto')
             self.assertEqual(config['params'][1][1], 'true')
             self.assertEqual(config['params'][2][1], 'true')
+
+    def test_get_azure_config_workload_identity_mode(self):
+        """Test get_config populates workload identity defaults when requested."""
+        with patch.dict(os.environ, {
+                'OPENCOST_PARQUET_STORAGE_BACKEND': 'azure',
+                'OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME': 'testaccount',
+                'OPENCOST_PARQUET_AZURE_CONTAINER_NAME': 'testcontainer',
+                'OPENCOST_PARQUET_AZURE_AUTH_MODE': 'workload-identity',
+                'AZURE_CLIENT_ID': 'identity-client-id',
+                'AZURE_TENANT_ID': 'identity-tenant-id',
+                'AZURE_FEDERATED_TOKEN_FILE': '/var/run/secrets/azure/tokens/azure-identity-token',
+                'OPENCOST_PARQUET_FILE_KEY_PREFIX': 'prefix/',
+                'OPENCOST_PARQUET_WINDOW_START': '2020-01-01T00:00:00Z',
+                'OPENCOST_PARQUET_WINDOW_END': '2020-01-01T23:59:59Z'}, clear=True):
+            config = get_config()
+
+            self.assertEqual(config['azure_auth_mode'], 'workload-identity')
+            self.assertEqual(config['azure_storage_account_name'], 'testaccount')
+            self.assertEqual(config['azure_container_name'], 'testcontainer')
+            self.assertEqual(config['azure_application_id'], 'identity-client-id')
+            self.assertEqual(config['azure_tenant'], 'identity-tenant-id')
+            self.assertEqual(config['azure_federated_token_file'], '/var/run/secrets/azure/tokens/azure-identity-token')
+
+    def test_get_azure_config_with_opencost_token_file_precedence(self):
+        """Test OPENCOST_PARQUET_AZURE_FEDERATED_TOKEN_FILE takes precedence over AZURE_FEDERATED_TOKEN_FILE."""
+        with patch.dict(os.environ, {
+                'OPENCOST_PARQUET_STORAGE_BACKEND': 'azure',
+                'OPENCOST_PARQUET_AZURE_STORAGE_ACCOUNT_NAME': 'testaccount',
+                'OPENCOST_PARQUET_AZURE_CONTAINER_NAME': 'testcontainer',
+                'OPENCOST_PARQUET_AZURE_AUTH_MODE': 'workload-identity',
+                'AZURE_CLIENT_ID': 'identity-client-id',
+                'AZURE_TENANT_ID': 'identity-tenant-id',
+                'OPENCOST_PARQUET_AZURE_FEDERATED_TOKEN_FILE': '/custom/token/path',
+                'AZURE_FEDERATED_TOKEN_FILE': '/var/run/secrets/azure/tokens/azure-identity-token',
+                'OPENCOST_PARQUET_FILE_KEY_PREFIX': 'prefix/',
+                'OPENCOST_PARQUET_WINDOW_START': '2020-01-01T00:00:00Z',
+                'OPENCOST_PARQUET_WINDOW_END': '2020-01-01T23:59:59Z'}, clear=True):
+            config = get_config()
+
+            self.assertEqual(config['azure_federated_token_file'], '/custom/token/path')
 
     def test_get_gcp_config_with_env_vars(self):
         """Test get_config returns correct configurations based on environment variables."""
@@ -280,6 +323,103 @@ class TestLoadConfigMaps(unittest.TestCase):
         """ Test the function's response to an empty JSON file """
         with self.assertRaises(json.JSONDecodeError):
             load_config_file(self.empty_json_path)
+
+
+class TestAzureStorageCredentialSelection(unittest.TestCase):
+    """Test credential selection logic for Azure storage backend."""
+
+    def setUp(self):
+        self.azure_storage = AzureStorage()
+
+    @patch('storage.azure_storage.WorkloadIdentityCredential')
+    @patch('storage.azure_storage.ClientSecretCredential')
+    def test_auto_prefers_client_secret_when_secret_present(
+            self, mock_client_secret, mock_workload):
+        """Ensure client secret path is used when credentials provided."""
+        config = {
+            'azure_auth_mode': 'auto',
+            'azure_tenant': 'tenant',
+            'azure_application_id': 'app-id',
+            'azure_application_secret': 'secret',
+        }
+        credential = self.azure_storage._build_credentials(config)
+
+        mock_client_secret.assert_called_once_with('tenant', 'app-id', 'secret')
+        mock_workload.assert_not_called()
+        self.assertEqual(credential, mock_client_secret.return_value)
+
+    @patch('storage.azure_storage.WorkloadIdentityCredential')
+    def test_workload_identity_mode_uses_env_values(self, mock_workload):
+        """Ensure workload identity credential is built from environment."""
+        config = {
+            'azure_auth_mode': 'workload-identity',
+            'azure_application_secret': None,
+            'azure_tenant': None,
+            'azure_application_id': None,
+            'azure_federated_token_file': None,
+        }
+        with patch.dict(os.environ, {
+                'AZURE_CLIENT_ID': 'workload-client-id',
+                'AZURE_TENANT_ID': 'workload-tenant',
+                'AZURE_FEDERATED_TOKEN_FILE': '/tmp/token'}, clear=True):
+            credential = self.azure_storage._build_credentials(config)
+
+        mock_workload.assert_called_once_with(
+            client_id='workload-client-id',
+            tenant_id='workload-tenant',
+            token_file_path='/tmp/token'
+        )
+        self.assertEqual(credential, mock_workload.return_value)
+
+    @patch('storage.azure_storage.WorkloadIdentityCredential')
+    def test_workload_identity_mode_uses_config_values(self, mock_workload):
+        """Ensure workload identity credential is built from config dict."""
+        config = {
+            'azure_auth_mode': 'workload-identity',
+            'azure_application_secret': None,
+            'azure_tenant': 'config-tenant',
+            'azure_application_id': 'config-client-id',
+            'azure_federated_token_file': '/config/token',
+        }
+        with patch.dict(os.environ, {}, clear=True):
+            credential = self.azure_storage._build_credentials(config)
+
+        mock_workload.assert_called_once_with(
+            client_id='config-client-id',
+            tenant_id='config-tenant',
+            token_file_path='/config/token'
+        )
+        self.assertEqual(credential, mock_workload.return_value)
+
+    @patch('storage.azure_storage.DefaultAzureCredential')
+    @patch('storage.azure_storage.WorkloadIdentityCredential')
+    def test_auto_falls_back_to_default_when_workload_unavailable(
+            self, mock_workload, mock_default):
+        """Ensure auto mode falls back when workload identity env is missing."""
+        config = {
+            'azure_auth_mode': 'auto',
+            'azure_application_secret': None,
+            'azure_tenant': None,
+            'azure_application_id': None,
+        }
+        with patch.dict(os.environ, {}, clear=True):
+            credential = self.azure_storage._build_credentials(config)
+
+        mock_workload.assert_not_called()
+        mock_default.assert_called_once_with(
+            exclude_interactive_browser_credential=True)
+        self.assertEqual(credential, mock_default.return_value)
+
+    def test_client_secret_mode_missing_values_raises(self):
+        """Ensure missing client-secret config raises an error."""
+        config = {
+            'azure_auth_mode': 'client-secret',
+            'azure_application_secret': None,
+            'azure_tenant': None,
+            'azure_application_id': None,
+        }
+        with self.assertRaises(ValueError):
+            self.azure_storage._build_credentials(config)
 
 
 if __name__ == '__main__':
