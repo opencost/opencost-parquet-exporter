@@ -5,7 +5,13 @@ import json
 import os
 import requests
 from freezegun import freeze_time
-from opencost_parquet_exporter import get_config, request_data, load_config_file
+from opencost_parquet_exporter import (
+    get_config,
+    ignored_alloc_key_list,
+    load_config_file,
+    process_result,
+    request_data,
+)
 
 
 class TestGetConfig(unittest.TestCase):
@@ -280,6 +286,46 @@ class TestLoadConfigMaps(unittest.TestCase):
         """ Test the function's response to an empty JSON file """
         with self.assertRaises(json.JSONDecodeError):
             load_config_file(self.empty_json_path)
+
+
+class TestIgnoredAllocKeys(unittest.TestCase):
+    """Tests for dropping nested allocation fields before json_normalize."""
+
+    def test_unwraps_keys_object(self):
+        """JSON config object must yield the inner list, not the dict key."""
+        self.assertEqual(
+            ignored_alloc_key_list({"keys": ["pvs", "lbAllocations"]}),
+            ["pvs", "lbAllocations"],
+        )
+
+    def test_accepts_plain_list(self):
+        """A list config should still work."""
+        self.assertEqual(
+            ignored_alloc_key_list(["pvs", "lbAllocations"]),
+            ["pvs", "lbAllocations"],
+        )
+
+    def test_process_result_drops_pvs_and_lb_from_json_config(self):
+        """Shipped ignore_alloc_keys.json shape must strip nested maps."""
+        result = [{
+            'ns/pod/ctr': {
+                'cpuCost': 1.0,
+                'pvs': {'pvc-1': {'byteHours': 10}},
+                'lbAllocations': {'svc': {'cost': 2}},
+            }
+        }]
+        processed = process_result(
+            result=result,
+            ignored_alloc_keys={"keys": ["pvs", "lbAllocations"]},
+            rename_cols={},
+            data_types={'cpuCost': 'float'},
+        )
+        self.assertIsNotNone(processed)
+        self.assertIn('cpuCost', processed.columns)
+        self.assertFalse(any(col.startswith('pvs') for col in processed.columns))
+        self.assertFalse(
+            any(col.startswith('lbAllocations') for col in processed.columns)
+        )
 
 
 if __name__ == '__main__':

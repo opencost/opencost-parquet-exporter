@@ -27,6 +27,17 @@ def load_config_file(file_path: str):
         config = json.load(file)
     return config
 
+
+def ignored_alloc_key_list(ignored_alloc_keys):
+    """Return allocation field names to drop before json_normalize.
+
+    ignore_alloc_keys.json is `{"keys": ["pvs", "lbAllocations"]}`. Iterating
+    that object yields `"keys"`, so the nested PV/LB maps were never removed.
+    """
+    if isinstance(ignored_alloc_keys, dict):
+        return ignored_alloc_keys.get('keys', [])
+    return list(ignored_alloc_keys)
+
 # pylint: disable=R0912,R0913,R0914,R0915
 
 
@@ -230,9 +241,10 @@ def process_result(result, ignored_alloc_keys, rename_cols, data_types):
         # Remove entry for unmounted pv's .
         # this break the table schema in athena
         split.pop('__unmounted__/__unmounted__/__unmounted__', None)
+    ignored_keys = ignored_alloc_key_list(ignored_alloc_keys)
     for split in result:
         for alloc_name in split.keys():
-            for ignored_key in ignored_alloc_keys:
+            for ignored_key in ignored_keys:
                 split[alloc_name].pop(ignored_key, None)
     try:
         frames = [
