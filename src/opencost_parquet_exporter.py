@@ -54,6 +54,7 @@ def get_config(
         accumulate=None,
         storage_backend=None,
         include_idle=None,
+        share_idle=None,
         idle_by_node=None,
 ):
     """
@@ -96,6 +97,9 @@ def get_config(
     - include_idle (str): Whether to return the calculated __idle__ field for the query,
                           defaults to the 'OPENCOST_PARQUET_INCLUDE_IDLE' environment 
                           variable, or 'false' if not set.
+    - share_idle (str): Whether to distribute idle costs across all allocations proportionally,
+                          defaults to the 'OPENCOST_PARQUET_SHARE_IDLE' environment 
+                          variable, or 'false' if not set.
     - idle_by_node (str): If true, idle allocations are created on a per node basis,
                           defaults to the 'OPENCOST_PARQUET_IDLE_BY_NODE' environment 
                           variable, or 'false' if not set.
@@ -136,6 +140,8 @@ def get_config(
         idle_by_node = os.environ.get('OPENCOST_PARQUET_IDLE_BY_NODE', 'false')
     if include_idle is None:
         include_idle = os.environ.get('OPENCOST_PARQUET_INCLUDE_IDLE', 'false')
+    if share_idle is None:
+        share_idle = os.environ.get('OPENCOST_PARQUET_SHARE_IDLE', 'false')
     if storage_backend is None:
         storage_backend = os.environ.get(
             'OPENCOST_PARQUET_STORAGE_BACKEND', 'aws')  # For backward compatibility
@@ -174,6 +180,7 @@ def get_config(
     config['params'] = [
         ("window", window),
         ("includeIdle", include_idle),
+        ("shareIdle", share_idle),
         ("idleByNode", idle_by_node),
         ("includeProportionalAssetResourceCosts", "false"),
         ("format", "json")
