@@ -1,4 +1,4 @@
-FROM python:3.11-bookworm AS builder
+FROM python:3.12-bookworm AS builder
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y cmake && apt-get -y clean && mkdir  -p /app/ && python3 -m venv /app/.venv 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
